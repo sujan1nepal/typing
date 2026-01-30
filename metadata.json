@@ -1,0 +1,5 @@
+{
+  "name": "TypingPro - Educational Typing Tutor",
+  "description": "A high-performance QWERTY typing tutor application featuring progressive lessons, real-time WPM/Accuracy tracking, and an interactive virtual keyboard with AI-powered personalized drill generation.",
+  "requestFramePermissions": []
+}
