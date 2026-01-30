@@ -15,13 +15,6 @@ export const ENGLISH_LESSONS: Lesson[] = [
     description: "Expanding to G and H",
     content: "asdfg hjkl; asdfg hjkl; fgh jkl asdf gh jkl; fg hj kl asdf gh jkl; asdfg hjkl;",
     category: 'Home Row'
-  },
-  {
-    id: 3,
-    title: "Top Row Intro",
-    description: "Introducing qwert yuiop",
-    content: "qwer tyui op qwer tyui op qwert yuiop q w e r t y u i o p qwer tyuiop qwer tyuiop",
-    category: 'Top Row'
   }
 ];
 
@@ -30,7 +23,8 @@ export const NEPALI_LESSONS: Lesson[] = [
     id: 101,
     title: "नेपाली होम रो (Home Row)",
     description: "अभ्यास: ब क म ा न ज व प ि स",
-    content: "ब क म ा न ज व प ि स ब क म ा न ज व प ि स ब क म ा न ज व प ि स ब क म ा न ज व प ि स",
+    // Lesson text as requested: "ब क म ा न ज व प ि स"
+    content: "ब क म ा न ज व प ि स ब क म ा न ज व प ि स ब क म ा न ज व प ि स",
     category: 'Home Row'
   },
   {
@@ -42,32 +36,31 @@ export const NEPALI_LESSONS: Lesson[] = [
   },
   {
     id: 103,
-    title: "होम रो संयोजन (Combinations)",
-    description: "अभ्यास: पवन, मनन, कवक",
-    content: "पवन मनन कवक पवन मनन कवक पवन मनन कवक पवन मनन कवक",
+    title: "होम रो संयोजन",
+    description: "मिश्रित अभ्यास",
+    content: "बक मान जव पिस बक मान जव पिस बक मान जव पिस बक मान जव पिस",
     category: 'Words'
   }
 ];
 
 // EXACT KEY MAPPING FROM USER PROMPT
 export const NEPALI_MAP: Record<string, string> = {
-  // Home Row
+  // Home Row: [a=ब], [s=क], [d=म], [f=ा], [g=न], [h=ज], [j=व], [k=प], [l=ि], [;=स]
   'a': 'ब', 's': 'क', 'd': 'म', 'f': 'ा', 'g': 'न', 'h': 'ज', 'j': 'व', 'k': 'प', 'l': 'ि', ';': 'स',
-  // Top Row
+  // Top Row: [q=त्र], [w=ध], [e=भ], [r=च], [t=त], [y=थ], [u=ग], [i=ष], [o=य], [p=उ]
   'q': 'त्र', 'w': 'ध', 'e': 'भ', 'r': 'च', 't': 'त', 'y': 'थ', 'u': 'ग', 'i': 'ष', 'o': 'य', 'p': 'उ',
-  // Bottom Row
+  // Bottom Row: [z=श], [x=ह], [c=अ], [v=ख], [b=द], [n=ल], [m=ङ]
   'z': 'श', 'x': 'ह', 'c': 'अ', 'v': 'ख', 'b': 'द', 'n': 'ल', 'm': 'ङ',
-  // Extras
+  // Symbols and Numbers
   '1': '१', '2': '२', '3': '३', '4': '४', '5': '५', '6': '६', '7': '७', '8': '८', '9': '९', '0': '०',
   '/': 'ः', "'": 'य्', ' ': ' ', '[': 'ृ', ']': 'े', ',': 'ो', '.': 'ौ', '\\': '्र'
 };
 
 export const NEPALI_SHIFT_MAP: Record<string, string> = {
-  // Home Row Shift (Using provided examples + traditional logic)
+  // Shift Mapping based on User Prompt and Traditional Rules
+  // Prompt: [Shift+s=ख्], [Shift+d=ष्], [Shift+f=ा], [Shift+k=फ्]
   'A': 'ब्', 'S': 'ख्', 'D': 'ष्', 'F': 'ा', 'G': 'न्', 'H': 'ज्', 'J': 'व्', 'K': 'फ्', 'L': 'ी', ':': 'स्',
-  // Top Row Shift
   'Q': 'त्त', 'W': 'ध्र', 'E': 'भ्र', 'R': 'च्र', 'T': 'त्र', 'Y': 'थ्र', 'U': 'गि', 'I': 'षि', 'O': 'यि', 'P': 'उि',
-  // Bottom Row Shift
   'Z': 'श्', 'X': 'ह्', 'C': 'अ्र', 'V': 'ख्', 'B': 'द्', 'N': 'ल्', 'M': 'ङ्र',
   '!': '!', '@': '@', '#': '#', '$': '$', '%': '%', '^': '^', '&': '&', '*': '*', '(': '(', ')': ')',
   '_': '_', '+': '+', '"': 'य्', '<': 'ो', '>': 'ौ', '?': 'रु', '{': 'ै', '}': 'ो', '|': '्र'
@@ -94,7 +87,7 @@ export const KEYBOARD_LAYOUT: KeyboardRow[] = [
   },
   {
     keys: [
-      { key: 'Tab', width: 'w-[clamp(1.5rem,5vw,3rem)]', code: 'Tab' },
+      { key: 'Tab', width: 'w-[clamp(1.5rem,4vw,3rem)]', code: 'Tab' },
       { key: 'q', shiftKey: 'Q', code: 'KeyQ' },
       { key: 'w', shiftKey: 'W', code: 'KeyW' },
       { key: 'e', shiftKey: 'E', code: 'KeyE' },
@@ -112,7 +105,7 @@ export const KEYBOARD_LAYOUT: KeyboardRow[] = [
   },
   {
     keys: [
-      { key: 'Caps', width: 'w-[clamp(2rem,6vw,4rem)]', code: 'CapsLock' },
+      { key: 'Caps', width: 'w-[clamp(2rem,5vw,4rem)]', code: 'CapsLock' },
       { key: 'a', shiftKey: 'A', code: 'KeyA' },
       { key: 's', shiftKey: 'S', code: 'KeyS' },
       { key: 'd', shiftKey: 'D', code: 'KeyD' },
@@ -129,7 +122,7 @@ export const KEYBOARD_LAYOUT: KeyboardRow[] = [
   },
   {
     keys: [
-      { key: 'Shift', width: 'w-[clamp(2.5rem,8vw,5rem)]', code: 'ShiftLeft' },
+      { key: 'Shift', width: 'w-[clamp(2.5rem,7vw,5rem)]', code: 'ShiftLeft' },
       { key: 'z', shiftKey: 'Z', code: 'KeyZ' },
       { key: 'x', shiftKey: 'X', code: 'KeyX' },
       { key: 'c', shiftKey: 'C', code: 'KeyC' },
@@ -145,11 +138,11 @@ export const KEYBOARD_LAYOUT: KeyboardRow[] = [
   },
   {
     keys: [
-      { key: 'Ctrl', width: 'w-[clamp(1.5rem,5vw,3rem)]', code: 'ControlLeft' },
-      { key: 'Alt', width: 'w-[clamp(1.5rem,5vw,3rem)]', code: 'AltLeft' },
-      { key: 'Space', width: 'w-[clamp(8rem,35vw,20rem)] flex-grow', code: 'Space' },
-      { key: 'Alt', width: 'w-[clamp(1.5rem,5vw,3rem)]', code: 'AltRight' },
-      { key: 'Ctrl', width: 'w-[clamp(1.5rem,5vw,3rem)]', code: 'ControlRight' },
+      { key: 'Ctrl', width: 'w-[clamp(1.5rem,4vw,3rem)]', code: 'ControlLeft' },
+      { key: 'Alt', width: 'w-[clamp(1.5rem,4vw,3rem)]', code: 'AltLeft' },
+      { key: 'Space', width: 'w-[clamp(8rem,30vw,20rem)] flex-grow', code: 'Space' },
+      { key: 'Alt', width: 'w-[clamp(1.5rem,4vw,3rem)]', code: 'AltRight' },
+      { key: 'Ctrl', width: 'w-[clamp(1.5rem,4vw,3rem)]', code: 'ControlRight' },
     ]
   }
 ];

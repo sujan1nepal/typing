@@ -38,9 +38,10 @@ const Keyboard: React.FC<KeyboardProps> = ({ targetChar, activeCode, language })
     if (!targetChar) return false;
     if (targetChar === ' ' && key === 'Space') return true;
     
+    const k = key.toLowerCase();
     if (language === 'ne') {
-      const primary = NEPALI_MAP[key.toLowerCase()];
-      const shifted = NEPALI_SHIFT_MAP[key.toLowerCase()] || NEPALI_SHIFT_MAP[key];
+      const primary = NEPALI_MAP[k];
+      const shifted = NEPALI_SHIFT_MAP[k] || NEPALI_SHIFT_MAP[key];
       return primary === targetChar || shifted === targetChar;
     }
     return key === targetChar || shiftKey === targetChar;
@@ -50,7 +51,7 @@ const Keyboard: React.FC<KeyboardProps> = ({ targetChar, activeCode, language })
     return isShiftNeeded() && (code === 'ShiftLeft' || code === 'ShiftRight');
   };
 
-  const getLabel = (keyObj: any) => {
+  const getLabels = (keyObj: any) => {
     const isSpecial = ['Backspace', 'Bksp', 'Tab', 'Caps', 'Enter', 'Ent', 'Shift', 'Ctrl', 'Alt', 'Space'].includes(keyObj.key);
     
     if (language === 'en' || isSpecial) {
@@ -60,31 +61,34 @@ const Keyboard: React.FC<KeyboardProps> = ({ targetChar, activeCode, language })
       };
     }
     
-    // Nepali Labels - Update dynamically based on language and Shift
-    const primary = NEPALI_MAP[keyObj.key.toLowerCase()] || keyObj.key;
-    const shifted = NEPALI_SHIFT_MAP[keyObj.key.toLowerCase()] || NEPALI_SHIFT_MAP[keyObj.key] || keyObj.shiftKey;
+    // Nepali Mode Labels
+    const k = keyObj.key.toLowerCase();
+    const primary = NEPALI_MAP[k] || keyObj.key;
+    const shifted = NEPALI_SHIFT_MAP[k] || NEPALI_SHIFT_MAP[keyObj.key] || keyObj.shiftKey;
     
     return {
       primary: isShiftDown ? (shifted || primary) : primary,
-      secondary: !isShiftDown ? shifted : null
+      secondary: !isShiftDown ? (shifted !== primary ? shifted : null) : null
     };
   };
 
   return (
     <div className="w-[90vw] mx-auto pb-4 px-2 select-none">
-      <div className="flex flex-col gap-[0.3vw] p-[0.8vw] bg-slate-900/50 rounded-xl border border-slate-800 shadow-2xl backdrop-blur-sm">
+      <div className="flex flex-col gap-[0.2vw] p-[0.6vw] bg-slate-900/60 rounded-xl border border-slate-800 shadow-2xl backdrop-blur-md">
         {KEYBOARD_LAYOUT.map((row, rowIndex) => (
-          <div key={rowIndex} className="flex justify-center gap-[0.3vw] h-[clamp(2rem,5vh,3.5rem)]">
+          <div key={rowIndex} className="flex justify-center gap-[0.2vw] h-[clamp(1.8rem,4.5vh,3rem)]">
             {row.keys.map((keyObj, keyIndex) => {
               const isHighlighted = isKeyHighlighted(keyObj.key, keyObj.shiftKey) || getShiftHighlight(keyObj.code);
               const isActive = activeCode === keyObj.code;
-              const labels = getLabel(keyObj);
+              const { primary, secondary } = getLabels(keyObj);
               
+              const isNepaliChar = language === 'ne' && !['Backspace', 'Bksp', 'Tab', 'Caps', 'Enter', 'Ent', 'Shift', 'Ctrl', 'Alt', 'Space'].includes(keyObj.key);
+
               return (
                 <div
                   key={keyIndex}
                   className={`
-                    relative flex items-center justify-center rounded-[0.4vw] font-bold transition-all duration-75
+                    relative flex flex-col items-center justify-center rounded-[0.4vw] font-bold transition-all duration-75
                     ${keyObj.width || 'w-full'} h-full
                     ${isActive 
                       ? 'bg-blue-500 text-white scale-[0.96] shadow-inner' 
@@ -94,14 +98,12 @@ const Keyboard: React.FC<KeyboardProps> = ({ targetChar, activeCode, language })
                   `}
                   style={{ fontSize: 'clamp(0.6rem, 1vw, 1.1rem)' }}
                 >
-                  <div className={`flex flex-col items-center ${language === 'ne' && !labels.primary.match(/[a-zA-Z]/) ? 'nepali' : ''}`}>
-                    {labels.secondary && !isShiftDown && (
-                      <span className="opacity-40 leading-none mb-[0.1vw]" style={{ fontSize: '0.75em' }}>{labels.secondary}</span>
-                    )}
-                    <span className={keyObj.key === 'Space' ? '' : 'uppercase'}>
-                      {keyObj.key === 'Space' ? '' : labels.primary}
-                    </span>
-                  </div>
+                  {secondary && (
+                    <span className="absolute top-[5%] opacity-30 leading-none" style={{ fontSize: '0.65em' }}>{secondary}</span>
+                  )}
+                  <span className={`${isNepaliChar ? 'nepali text-[1.2em]' : 'uppercase'} ${keyObj.key === 'Space' ? 'invisible' : ''}`}>
+                    {primary}
+                  </span>
                   {isActive && <div className="absolute inset-0 bg-blue-400/20 animate-ping rounded-[0.4vw] pointer-events-none"></div>}
                 </div>
               );

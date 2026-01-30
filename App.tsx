@@ -165,45 +165,45 @@ const App: React.FC = () => {
     <div className="h-screen w-screen overflow-hidden bg-slate-950 text-slate-200 flex flex-col justify-between">
       {/* Header Container */}
       <div className="flex-none">
-        <header className="p-3 md:p-4 flex justify-between items-center bg-slate-950/80 backdrop-blur-md border-b border-slate-900 z-50">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
+        <header className="p-2 md:p-3 flex justify-between items-center bg-slate-950 border-b border-slate-900 z-50">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg">
               <span className="text-lg font-bold italic">T</span>
             </div>
             <div className="hidden sm:block">
-              <h1 className="text-md font-bold tracking-tight">TypingPro</h1>
+              <h1 className="text-sm font-bold tracking-tight">TypingPro</h1>
             </div>
             
-            <div className="flex bg-slate-900 p-0.5 rounded-lg border border-slate-800 ml-4">
+            <div className="flex bg-slate-900 p-0.5 rounded-lg border border-slate-800 ml-2">
               <button 
                 onClick={() => handleLanguageToggle('en')}
-                className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${language === 'en' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}
+                className={`px-3 py-0.5 rounded-md text-[9px] font-bold transition-all ${language === 'en' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}
               >
                 EN
               </button>
               <button 
                 onClick={() => handleLanguageToggle('ne')}
-                className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${language === 'ne' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}
+                className={`px-3 py-0.5 rounded-md text-[9px] font-bold transition-all ${language === 'ne' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}
               >
                 NE
               </button>
             </div>
           </div>
 
-          <div className="flex gap-4 items-center bg-slate-900/50 px-4 py-1.5 rounded-full border border-slate-800">
-            <div className="text-center min-w-[2.5rem]">
-              <p className="text-[8px] uppercase text-slate-500 font-bold">WPM</p>
-              <p className="text-sm md:text-lg font-bold mono text-blue-400">{stats.wpm}</p>
+          <div className="flex gap-4 items-center bg-slate-900/50 px-3 py-1 rounded-full border border-slate-800">
+            <div className="text-center min-w-[2rem]">
+              <p className="text-[7px] uppercase text-slate-500 font-bold">WPM</p>
+              <p className="text-xs md:text-sm font-bold mono text-blue-400">{stats.wpm}</p>
             </div>
-            <div className="w-px h-6 bg-slate-800"></div>
-            <div className="text-center min-w-[2.5rem]">
-              <p className="text-[8px] uppercase text-slate-500 font-bold">ACC</p>
-              <p className="text-sm md:text-lg font-bold mono text-emerald-400">{stats.accuracy}%</p>
+            <div className="w-px h-5 bg-slate-800"></div>
+            <div className="text-center min-w-[2rem]">
+              <p className="text-[7px] uppercase text-slate-500 font-bold">ACC</p>
+              <p className="text-xs md:text-sm font-bold mono text-emerald-400">{stats.accuracy}%</p>
             </div>
-            <div className="w-px h-6 bg-slate-800"></div>
-            <div className="text-center min-w-[2.5rem]">
-              <p className="text-[8px] uppercase text-slate-500 font-bold">TIME</p>
-              <p className="text-sm md:text-lg font-bold mono text-slate-400">{stats.elapsedTime}s</p>
+            <div className="w-px h-5 bg-slate-800"></div>
+            <div className="text-center min-w-[2rem]">
+              <p className="text-[7px] uppercase text-slate-500 font-bold">TIME</p>
+              <p className="text-xs md:text-sm font-bold mono text-slate-400">{stats.elapsedTime}s</p>
             </div>
           </div>
 
@@ -212,23 +212,23 @@ const App: React.FC = () => {
               onClick={handleRestart}
               className="p-1.5 hover:bg-slate-800 rounded-full transition-colors text-slate-400"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
             </button>
-            <div className="px-2 py-0.5 bg-slate-800 rounded-md text-[10px] font-semibold text-slate-300">
+            <div className="px-1.5 py-0.5 bg-slate-800 rounded-md text-[8px] font-semibold text-slate-300">
               LVL {currentLessonIndex + 1}
             </div>
           </div>
         </header>
 
-        <div className="text-center py-2 space-y-0.5">
-          <h2 className={`text-xl font-bold text-slate-100 ${language === 'ne' ? 'nepali' : ''}`}>{lesson.title}</h2>
-          <p className={`text-xs text-slate-400 ${language === 'ne' ? 'nepali' : ''}`}>{lesson.description}</p>
+        <div className="text-center py-1 space-y-0">
+          <h2 className={`text-lg font-bold text-slate-100 ${language === 'ne' ? 'nepali' : ''}`}>{lesson.title}</h2>
+          <p className={`text-[10px] text-slate-400 ${language === 'ne' ? 'nepali' : ''}`}>{lesson.description}</p>
         </div>
       </div>
 
-      {/* Typing Area Container - Flexible growth */}
+      {/* Typing Area - Flexibly fills middle space */}
       <div className="flex-grow flex flex-col items-center justify-center px-4 overflow-hidden" onClick={() => setIsFocused(true)}>
         <TypingArea 
           content={lesson.content} 
@@ -238,45 +238,45 @@ const App: React.FC = () => {
         />
       </div>
 
-      {/* Keyboard Container - Fixed at bottom */}
+      {/* Keyboard - Fixed at bottom */}
       <div className="flex-none w-full">
         <Keyboard targetChar={targetChar} activeCode={activeKeyCode} language={language} />
       </div>
 
-      {/* Results Modal */}
+      {/* Results Overlay */}
       {showResults && (
         <div className="fixed inset-0 bg-slate-950/90 flex items-center justify-center z-[100] backdrop-blur-sm">
-          <div className="bg-slate-900 w-full max-w-lg p-6 rounded-3xl border border-slate-800 shadow-2xl space-y-6 mx-4">
-            <div className="text-center space-y-2">
-              <h3 className="text-2xl font-bold">Lesson Complete!</h3>
-              <p className="text-slate-400 italic text-sm px-4">"{aiFeedback}"</p>
+          <div className="bg-slate-900 w-full max-w-sm p-6 rounded-2xl border border-slate-800 shadow-2xl space-y-4 mx-4">
+            <div className="text-center space-y-1">
+              <h3 className="text-xl font-bold">Lesson Complete!</h3>
+              <p className="text-slate-400 italic text-xs px-2">"{aiFeedback}"</p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-slate-800/50 p-4 rounded-2xl text-center">
-                <p className="text-[10px] text-slate-500 uppercase font-bold">Final WPM</p>
-                <p className="text-3xl font-black text-blue-400 mono">{stats.wpm}</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-slate-800/50 p-3 rounded-xl text-center">
+                <p className="text-[8px] text-slate-500 uppercase font-bold">WPM</p>
+                <p className="text-2xl font-black text-blue-400 mono">{stats.wpm}</p>
               </div>
-              <div className="bg-slate-800/50 p-4 rounded-2xl text-center">
-                <p className="text-[10px] text-slate-500 uppercase font-bold">Accuracy</p>
-                <p className="text-3xl font-black text-emerald-400 mono">{stats.accuracy}%</p>
+              <div className="bg-slate-800/50 p-3 rounded-xl text-center">
+                <p className="text-[8px] text-slate-500 uppercase font-bold">Accuracy</p>
+                <p className="text-2xl font-black text-emerald-400 mono">{stats.accuracy}%</p>
               </div>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2">
               <button 
                 onClick={handleNextLesson}
                 disabled={stats.accuracy < 90}
-                className={`w-full py-3 rounded-xl font-bold text-base transition-all
+                className={`w-full py-2.5 rounded-lg font-bold text-sm transition-all
                   ${stats.accuracy >= 90 ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}
                 `}
               >
                 {stats.accuracy >= 90 ? 'CONTINUE' : '90% ACCURACY REQUIRED'}
               </button>
               <div className="flex gap-2">
-                <button onClick={handleRestart} className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl text-sm">
+                <button onClick={handleRestart} className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-lg text-xs">
                   RETRY
                 </button>
                 {mistakenChars.size > 0 && (
-                  <button onClick={handleAIJump} disabled={isGeneratingDrill} className="flex-1 py-2.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 font-semibold rounded-xl border border-amber-600/30 text-sm">
+                  <button onClick={handleAIJump} disabled={isGeneratingDrill} className="flex-1 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 font-semibold rounded-lg border border-amber-600/30 text-xs">
                     {isGeneratingDrill ? 'DRILLING...' : 'AI DRILL'}
                   </button>
                 )}
