@@ -1,13 +1,17 @@
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { TypingStats, LevelCategory } from './types';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { NEPALI_MAP, NEPALI_SHIFT_MAP } from './constants';
 import Keyboard from './components/Keyboard';
 import TypingArea from './components/TypingArea';
-import { getAIFeedback } from './services/gemini';
 import { getLessonText, getLevelCategory } from './services/levelGenerator';
+import { LevelCategory } from './types';
 
 const App: React.FC = () => {
+  const getSaved = (key: string, def: any) => {
+    const val = localStorage.getItem(key);
+    return val ? JSON.parse(val) : def;
+  };
+
   const [language, setLanguage] = useState<'en' | 'ne'>('en');
   const [level, setLevel] = useState(1);
   const [userInput, setUserInput] = useState('');
@@ -16,95 +20,86 @@ const App: React.FC = () => {
   const [endTime, setEndTime] = useState<number | null>(null);
   const [errors, setErrors] = useState(0);
   const [activeKeyCode, setActiveKeyCode] = useState<string | null>(null);
-  const [showResults, setShowResults] = useState(false);
-  const [aiFeedback, setAiFeedback] = useState<string>('');
+  const [aiFeedback, setAiFeedback] = useState<string>('Ready to flow? Start typing!');
   const [mistakenChars, setMistakenChars] = useState<Set<string>>(new Set());
   const [lastHeatmap, setLastHeatmap] = useState<Set<string>>(new Set());
   const [showLevelSelector, setShowLevelSelector] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   
+  const [targetWpm, setTargetWpm] = useState<number>(() => getSaved('targetWpm', 40));
+  const [targetAccuracy, setTargetAccuracy] = useState<number>(() => getSaved('targetAccuracy', 100));
   const [now, setNow] = useState(Date.now());
 
-  // Procedurally generate lesson content based on current level and language
+  useEffect(() => {
+    localStorage.setItem('targetWpm', JSON.stringify(targetWpm));
+    localStorage.setItem('targetAccuracy', JSON.stringify(targetAccuracy));
+  }, [targetWpm, targetAccuracy]);
+
   const lessonContent = useMemo(() => getLessonText(level, language), [level, language]);
   const targetChar = lessonContent[userInput.length] || '';
   const currentCategory = getLevelCategory(level);
 
   useEffect(() => {
     let interval: number;
-    if (startTime && !endTime && !showResults) {
+    if (startTime && !endTime) {
       interval = window.setInterval(() => {
         setNow(Date.now());
-      }, 1000);
+      }, 500);
     }
     return () => clearInterval(interval);
-  }, [startTime, endTime, showResults]);
+  }, [startTime, endTime]);
 
   const stats = useMemo(() => {
-    if (!startTime) {
-      return { wpm: 0, accuracy: 100, elapsedTime: 0, errors };
-    }
+    if (!startTime) return { wpm: 0, accuracy: 100, elapsedTime: 0, errors };
     const currentEnd = endTime || now;
     const elapsedSeconds = Math.max((currentEnd - startTime) / 1000, 0.001);
     const elapsedMinutes = elapsedSeconds / 60;
     const wpm = Math.round((userInput.length / 5) / elapsedMinutes);
     const totalAttempted = userInput.length + errors;
-    const accuracy = totalAttempted > 0 
-      ? Math.round(((totalAttempted - errors) / totalAttempted) * 100) 
-      : 100;
-
+    const accuracy = totalAttempted > 0 ? Math.round((userInput.length / totalAttempted) * 100) : 100;
     return { wpm, accuracy, elapsedTime: Math.round(elapsedSeconds), errors };
   }, [startTime, endTime, now, userInput.length, errors]);
 
-  // Strict Level Requirement: WPM > 40 and 100% Accuracy
-  const isLevelPassed = useMemo(() => {
-    return stats.wpm > 40 && stats.accuracy === 100;
-  }, [stats.wpm, stats.accuracy]);
-
-  const finishLesson = useCallback(async (finalWpm: number, finalAccuracy: number) => {
-    setShowResults(true);
-    setAiFeedback("Analyzing your performance...");
-    setLastHeatmap(new Set(mistakenChars)); // Capture heatmap
-    try {
-      const feedback = await getAIFeedback(finalWpm, finalAccuracy);
-      setAiFeedback(feedback);
-    } catch (e) {
-      setAiFeedback("Great effort! Muscle memory is built through repetition.");
-    }
-  }, [mistakenChars]);
-
-  useEffect(() => {
-    if (userInput.length > 0 && userInput.length === lessonContent.length && !showResults) {
-      const finalEndTime = Date.now();
-      setEndTime(finalEndTime);
-      finishLesson(stats.wpm, stats.accuracy);
-    }
-  }, [userInput.length, lessonContent.length, showResults, stats.wpm, stats.accuracy, finishLesson]);
-
-  const handleRestart = () => {
+  const handleRestart = useCallback(() => {
     setUserInput('');
     setStartTime(null);
     setEndTime(null);
     setErrors(0);
     setMistakenChars(new Set());
-    setShowResults(false);
     setNow(Date.now());
-  };
+  }, []);
 
-  const handleNextLevel = () => {
-    if (level < 100 && isLevelPassed) {
+  const handleNextLevel = useCallback((isPassed: boolean) => {
+    setLastHeatmap(new Set(mistakenChars));
+    if (isPassed && level < 300) {
       setLevel(prev => prev + 1);
-      handleRestart();
+      setAiFeedback(`Level ${level} Cleared!`);
+    } else if (!isPassed) {
+      setAiFeedback(`Repeating: Target ${targetWpm} WPM / ${targetAccuracy}% Acc`);
+    } else {
+      setAiFeedback("Final Mastery Achieved!");
     }
-  };
+    handleRestart();
+  }, [level, mistakenChars, handleRestart, targetWpm, targetAccuracy]);
+
+  useEffect(() => {
+    if (userInput.length > 0 && userInput.length === lessonContent.length) {
+      const isPassed = stats.wpm >= targetWpm && stats.accuracy >= targetAccuracy;
+      const timeout = setTimeout(() => handleNextLevel(isPassed), 400); 
+      return () => clearTimeout(timeout);
+    }
+  }, [userInput.length, lessonContent.length, stats.wpm, stats.accuracy, handleNextLevel, targetWpm, targetAccuracy]);
 
   const handleLanguageToggle = (lang: 'en' | 'ne') => {
     setLanguage(lang);
+    setLastHeatmap(new Set());
     handleRestart();
   };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isFocused || showResults || showLevelSelector) return;
+      if (e.repeat) return;
+      if (!isFocused || showLevelSelector || showSettings) return;
       if (e.ctrlKey || e.altKey || e.metaKey) return;
       if (['Tab', 'Backspace', 'Escape', 'F5', 'F12'].includes(e.key)) {
          if (e.key === 'Tab') e.preventDefault();
@@ -141,11 +136,15 @@ const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isFocused, userInput, startTime, lessonContent, showResults, language, showLevelSelector]);
+  }, [isFocused, userInput, startTime, lessonContent, language, showLevelSelector, showSettings]);
+
+  const CATEGORIES: LevelCategory[] = [
+    'Home Row', 'Top Row', 'Bottom Row', 'Mastery Mix', 
+    'Word Mastery', 'Sentence Flow', 'Paragraph Stamina', 'Extreme Mastery'
+  ];
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-slate-950 text-slate-200 flex flex-col justify-between">
-      {/* Header Container */}
       <div className="flex-none">
         <header className="p-2 md:p-3 flex justify-between items-center bg-slate-950 border-b border-slate-900 z-50">
           <div className="flex items-center gap-2">
@@ -156,118 +155,120 @@ const App: React.FC = () => {
               onClick={() => setShowLevelSelector(true)}
               className="flex flex-col items-start px-3 py-1 bg-slate-900/50 rounded-lg border border-slate-800 hover:border-blue-500 transition-colors"
             >
-              <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Select Level</span>
-              <span className="text-xs font-bold text-slate-200">LVL {level} • {currentCategory}</span>
+              <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Roadmap</span>
+              <span className="text-xs font-bold text-slate-200">LVL {level}: {currentCategory}</span>
             </button>
-            
             <div className="flex bg-slate-900 p-0.5 rounded-lg border border-slate-800 ml-2">
-              <button 
-                onClick={() => handleLanguageToggle('en')}
-                className={`px-3 py-0.5 rounded-md text-[9px] font-bold transition-all ${language === 'en' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}
-              >
-                EN
-              </button>
-              <button 
-                onClick={() => handleLanguageToggle('ne')}
-                className={`px-3 py-0.5 rounded-md text-[9px] font-bold transition-all ${language === 'ne' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}
-              >
-                NE
-              </button>
+              {(['en', 'ne'] as const).map(lang => (
+                <button 
+                  key={lang}
+                  onClick={() => handleLanguageToggle(lang)}
+                  className={`px-3 py-0.5 rounded-md text-[9px] font-bold transition-all ${language === lang ? 'bg-blue-600 text-white' : 'text-slate-500'}`}
+                >
+                  {lang.toUpperCase()}
+                </button>
+              ))}
             </div>
           </div>
 
-          <div className="flex gap-4 items-center bg-slate-900/50 px-3 py-1 rounded-full border border-slate-800">
-            <div className="text-center min-w-[2rem]">
-              <p className="text-[7px] uppercase text-slate-500 font-bold">WPM</p>
-              <p className="text-xs md:text-sm font-bold mono text-blue-400">{stats.wpm}</p>
-            </div>
-            <div className="w-px h-5 bg-slate-800"></div>
-            <div className="text-center min-w-[2rem]">
-              <p className="text-[7px] uppercase text-slate-500 font-bold">ACC</p>
-              <p className="text-xs md:text-sm font-bold mono text-emerald-400">{stats.accuracy}%</p>
-            </div>
-            <div className="w-px h-5 bg-slate-800"></div>
-            <div className="text-center min-w-[2rem]">
-              <p className="text-[7px] uppercase text-slate-500 font-bold">TIME</p>
-              <p className="text-xs md:text-sm font-bold mono text-slate-400">{stats.elapsedTime}s</p>
+          <div className="flex gap-4 items-center bg-slate-900/50 px-4 py-1 rounded-full border border-slate-800">
+             <div className="text-center">
+              <p className="text-[7px] uppercase text-slate-500 font-bold mb-0.5">Live Feed</p>
+              <div className="flex gap-4 items-baseline">
+                <div className="flex items-baseline gap-1">
+                  <span className={`text-xs md:text-sm font-bold mono ${stats.wpm >= targetWpm ? 'text-blue-400' : 'text-slate-500'}`}>{stats.wpm}</span>
+                  <span className="text-[7px] text-slate-600 uppercase font-black">WPM</span>
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <span className={`text-xs md:text-sm font-bold mono ${stats.accuracy >= targetAccuracy ? 'text-emerald-400' : 'text-slate-500'}`}>{stats.accuracy}%</span>
+                  <span className="text-[7px] text-slate-600 uppercase font-black">ACC</span>
+                </div>
+              </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <button 
-              onClick={handleRestart}
-              className="p-1.5 hover:bg-slate-800 rounded-full transition-colors text-slate-400"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <button onClick={() => setShowSettings(true)} className="p-1.5 hover:bg-slate-800 rounded-full text-slate-400">
+               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
+            <button onClick={handleRestart} className="p-1.5 hover:bg-slate-800 rounded-full text-slate-400">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
             </button>
           </div>
         </header>
+        <div className="text-center py-1 bg-slate-900/30">
+          <p className="text-[9px] font-bold text-blue-500/80 uppercase tracking-widest">{aiFeedback}</p>
+        </div>
       </div>
 
-      {/* Typing Area - Flexibly fills middle space */}
       <div className="flex-grow flex flex-col items-center justify-center px-4 overflow-hidden" onClick={() => setIsFocused(true)}>
-        <TypingArea 
-          content={lessonContent} 
-          userInput={userInput} 
-          isFocused={isFocused} 
-          language={language}
-        />
+        <TypingArea content={lessonContent} userInput={userInput} isFocused={isFocused} language={language} />
       </div>
 
-      {/* Keyboard - Fixed at bottom */}
       <div className="flex-none w-full">
-        <Keyboard 
-          targetChar={targetChar} 
-          activeCode={activeKeyCode} 
-          language={language}
-          errorHeatmap={showResults ? lastHeatmap : new Set()} 
-        />
+        <Keyboard targetChar={targetChar} activeCode={activeKeyCode} language={language} errorHeatmap={lastHeatmap} />
       </div>
 
-      {/* Level Selector Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 bg-slate-950/95 flex items-center justify-center z-[300] backdrop-blur-md">
+          <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+            <h2 className="text-xl font-bold mb-6">Progression Settings</h2>
+            <div className="space-y-6">
+              <div>
+                <div className="flex justify-between mb-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Target WPM</label>
+                  <span className="text-sm font-bold text-blue-400">{targetWpm}</span>
+                </div>
+                <input type="range" min="10" max="120" step="5" value={targetWpm} onChange={(e) => setTargetWpm(Number(e.target.value))} className="w-full accent-blue-500" />
+              </div>
+              <div>
+                <div className="flex justify-between mb-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Target Accuracy</label>
+                  <span className="text-sm font-bold text-emerald-400">{targetAccuracy}%</span>
+                </div>
+                <input type="range" min="80" max="100" step="1" value={targetAccuracy} onChange={(e) => setTargetAccuracy(Number(e.target.value))} className="w-full accent-emerald-500" />
+              </div>
+            </div>
+            <button onClick={() => setShowSettings(false)} className="w-full mt-8 py-3 bg-blue-600 text-white font-bold rounded-xl">Apply Settings</button>
+          </div>
+        </div>
+      )}
+
       {showLevelSelector && (
         <div className="fixed inset-0 bg-slate-950/95 flex items-center justify-center z-[200] backdrop-blur-md">
-          <div className="w-full max-w-4xl h-[80vh] bg-slate-900 border border-slate-800 rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden">
-            <div className="flex justify-between items-center mb-6">
+          <div className="w-full max-w-5xl h-[85vh] bg-slate-900 border border-slate-800 rounded-3xl p-8 flex flex-col shadow-2xl">
+            <div className="flex justify-between items-center mb-8">
               <div>
-                <h2 className="text-2xl font-bold">Curriculum Roadmap</h2>
-                <p className="text-slate-400 text-sm">Select a level to begin your training</p>
+                <h2 className="text-3xl font-bold">Curriculum Roadmap</h2>
+                <p className="text-slate-400">Complete all 300 levels to master the keyboard</p>
               </div>
-              <button 
-                onClick={() => setShowLevelSelector(false)}
-                className="p-2 hover:bg-slate-800 rounded-full text-slate-500 hover:text-white transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <button onClick={() => setShowLevelSelector(false)} className="p-3 hover:bg-slate-800 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
             
-            <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar">
-              {(['Home Row', 'Top Row', 'Bottom Row', 'Mastery Mix'] as const).map(cat => (
-                <div key={cat} className="mb-8">
-                  <h3 className="text-blue-400 text-xs font-black uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                    <span className="w-8 h-px bg-blue-500/30"></span> {cat}
+            <div className="flex-grow overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 pr-4 custom-scrollbar">
+              {CATEGORIES.map(cat => (
+                <div key={cat}>
+                  <h3 className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                    <span className="w-4 h-px bg-blue-500/30"></span> {cat}
                   </h3>
-                  <div className="grid grid-cols-5 md:grid-cols-10 gap-2">
-                    {Array.from({ length: 100 }, (_, i) => i + 1)
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {Array.from({ length: 300 }, (_, i) => i + 1)
                       .filter(l => getLevelCategory(l) === cat)
                       .map(l => (
                         <button
                           key={l}
-                          onClick={() => {
-                            setLevel(l);
-                            setShowLevelSelector(false);
-                            handleRestart();
-                          }}
-                          className={`
-                            aspect-square rounded-xl flex items-center justify-center font-bold text-sm transition-all
-                            ${l === level 
-                              ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20 ring-2 ring-blue-400' 
-                              : 'bg-slate-800/50 text-slate-500 hover:bg-slate-800 hover:text-slate-200 border border-slate-700/30'}
-                          `}
+                          onClick={() => { setLevel(l); setShowLevelSelector(false); handleRestart(); }}
+                          className={`aspect-square rounded-lg flex items-center justify-center font-bold text-[10px] transition-all
+                            ${l === level ? 'bg-blue-600 text-white ring-2 ring-blue-400' : 'bg-slate-800/50 text-slate-500 hover:text-slate-200 border border-slate-700/30'}`}
                         >
                           {l}
                         </button>
@@ -275,67 +276,6 @@ const App: React.FC = () => {
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Results Overlay */}
-      {showResults && (
-        <div className="fixed inset-0 bg-slate-950/90 flex items-center justify-center z-[100] backdrop-blur-sm">
-          <div className="bg-slate-900 w-full max-w-sm p-6 rounded-2xl border border-slate-800 shadow-2xl space-y-4 mx-4">
-            <div className="text-center space-y-1">
-              <h3 className="text-xl font-bold">Level {level} Result</h3>
-              <p className="text-slate-400 italic text-xs px-2">"{aiFeedback}"</p>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-3">
-              <div className={`p-3 rounded-xl text-center border transition-colors ${stats.wpm > 40 ? 'bg-blue-900/20 border-blue-500/50' : 'bg-slate-800/50 border-slate-700'}`}>
-                <p className="text-[8px] text-slate-500 uppercase font-bold">WPM</p>
-                <p className={`text-2xl font-black mono ${stats.wpm > 40 ? 'text-blue-400' : 'text-slate-500'}`}>{stats.wpm}</p>
-                <p className="text-[7px] text-slate-500">Target: > 40</p>
-              </div>
-              <div className={`p-3 rounded-xl text-center border transition-colors ${stats.accuracy === 100 ? 'bg-emerald-900/20 border-emerald-500/50' : 'bg-slate-800/50 border-slate-700'}`}>
-                <p className="text-[8px] text-slate-500 uppercase font-bold">Accuracy</p>
-                <p className={`text-2xl font-black mono ${stats.accuracy === 100 ? 'text-emerald-400' : 'text-slate-500'}`}>{stats.accuracy}%</p>
-                <p className="text-[7px] text-slate-500">Target: 100%</p>
-              </div>
-            </div>
-            
-            {lastHeatmap.size > 0 && (
-              <div className="text-center py-1">
-                <p className="text-[8px] text-rose-500 uppercase font-bold mb-1">Errors to fix</p>
-                <div className="flex flex-wrap justify-center gap-1">
-                  {Array.from(lastHeatmap).map(char => (
-                    <span key={char} className="px-1.5 py-0.5 bg-rose-500/10 text-rose-500 rounded text-[10px] font-bold border border-rose-500/20">
-                      {char}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {!isLevelPassed && (
-              <div className="bg-amber-900/20 border border-amber-500/30 p-2 rounded-lg">
-                <p className="text-[9px] text-amber-500 text-center font-bold">
-                  ⚠️ LEVEL REPEAT REQUIRED: REACH 40+ WPM AND 100% ACCURACY TO PROGRESS.
-                </p>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <button 
-                onClick={handleNextLevel}
-                disabled={!isLevelPassed}
-                className={`w-full py-2.5 rounded-lg font-bold text-sm transition-all
-                  ${isLevelPassed ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}
-                `}
-              >
-                {isLevelPassed ? 'NEXT LEVEL' : 'LOCKED: REQUIREMENTS NOT MET'}
-              </button>
-              <button onClick={handleRestart} className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-lg text-xs">
-                RETRY LEVEL
-              </button>
             </div>
           </div>
         </div>

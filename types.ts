@@ -1,5 +1,13 @@
 
-export type LevelCategory = 'Home Row' | 'Top Row' | 'Bottom Row' | 'Mastery Mix' | 'Custom';
+export type LevelCategory = 
+  | 'Home Row' 
+  | 'Top Row' 
+  | 'Bottom Row' 
+  | 'Mastery Mix' 
+  | 'Word Mastery' 
+  | 'Sentence Flow' 
+  | 'Paragraph Stamina' 
+  | 'Extreme Mastery';
 
 export interface Lesson {
   id: number;
