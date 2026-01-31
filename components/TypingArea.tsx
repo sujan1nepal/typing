@@ -15,6 +15,7 @@ const TypingArea: React.FC<TypingAreaProps> = ({ content, userInput, isFocused, 
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeCharRef = useRef<HTMLSpanElement>(null);
   const [caretPos, setCaretPos] = useState({ left: 0, top: 0, height: 0 });
+  const isDark = theme === 'dark';
 
   useEffect(() => {
     if (activeCharRef.current) {
@@ -24,7 +25,6 @@ const TypingArea: React.FC<TypingAreaProps> = ({ content, userInput, isFocused, 
         top: char.offsetTop,
         height: char.offsetHeight
       });
-
       if (scrollRef.current) {
         const scroll = scrollRef.current;
         const targetScroll = char.offsetTop - (scroll.offsetHeight / 2) + (char.offsetHeight / 2);
@@ -52,19 +52,21 @@ const TypingArea: React.FC<TypingAreaProps> = ({ content, userInput, isFocused, 
                 top: caretPos.top + 14, 
                 height: caretPos.height - 28,
                 boxShadow: '0 0 20px rgba(59, 130, 246, 0.8)',
-                opacity: userInput.length === content.length ? 0 : 1
+                opacity: userInput.length === (content?.length || 0) ? 0 : 1
               }}
             />
           )}
 
-          {content.split('').map((char, index) => {
+          {(content || "").split('').map((char, index) => {
             const isTyped = index < userInput.length;
             const isCurrent = index === userInput.length;
             const isCorrect = isTyped && userInput[index] === char;
 
-            let charColor = 'text-slate-800'; 
+            let charColor = isDark ? 'text-slate-800' : 'text-slate-300'; 
             if (isTyped) {
-              charColor = isCorrect ? 'text-slate-100' : 'text-rose-500 underline decoration-[3px] underline-offset-[12px]';
+              charColor = isCorrect 
+                ? (isDark ? 'text-slate-100' : 'text-slate-900') 
+                : 'text-rose-500 underline decoration-[3px] underline-offset-[12px]';
             }
 
             return (
