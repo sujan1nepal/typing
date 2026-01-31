@@ -12,6 +12,7 @@ const App: React.FC = () => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [authSuccess, setAuthSuccess] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
@@ -25,7 +26,11 @@ const App: React.FC = () => {
   const [isFocused, setIsFocused] = useState(false);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [endTime, setEndTime] = useState<number | null>(null);
-  const [errors, setErrors] = useState(0);
+  
+  // Stats Counters
+  const [correctKeypresses, setCorrectKeypresses] = useState(0);
+  const [incorrectKeypresses, setIncorrectKeypresses] = useState(0);
+  
   const [activeKeyCode, setActiveKeyCode] = useState<string | null>(null);
   const [aiFeedback, setAiFeedback] = useState<string>('Ready to flow? Start typing!');
   const [mistakenChars, setMistakenChars] = useState<Set<string>>(new Set());
@@ -80,6 +85,8 @@ const App: React.FC = () => {
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
+    setAuthSuccess(null);
+    
     const { data, error } = authMode === 'login' 
       ? await signInWithEmail(email, password)
       : await signUpWithEmail(email, password);
@@ -87,11 +94,14 @@ const App: React.FC = () => {
     if (error) {
       setAuthError(error.message);
     } else {
-      setShowAuthModal(false);
-      setEmail('');
-      setPassword('');
       if (authMode === 'signup') {
+        setAuthSuccess("Success! Please check your email for a verification link.");
         setAiFeedback("Account created! Verify your email to complete sync.");
+      } else {
+        setAuthSuccess("Logged in successfully!");
+        setShowAuthModal(false);
+        setEmail('');
+        setPassword('');
       }
     }
   };
@@ -122,20 +132,28 @@ const App: React.FC = () => {
   }, [startTime, endTime]);
 
   const stats = useMemo(() => {
-    if (!startTime) return { wpm: 0, accuracy: 100, elapsedTime: 0, errors };
+    if (!startTime) return { wpm: 0, accuracy: 100, elapsedTime: 0, errors: incorrectKeypresses };
     const currentEnd = endTime || now;
     const elapsedSeconds = Math.max((currentEnd - startTime) / 1000, 0.001);
+    
+    // Standard WPM: (characters / 5) / minutes
     const wpm = Math.round((userInput.length / 5) / (elapsedSeconds / 60));
-    const totalAttempted = userInput.length + errors;
-    const accuracy = totalAttempted > 0 ? Math.round((userInput.length / totalAttempted) * 100) : 100;
-    return { wpm, accuracy, elapsedTime: Math.round(elapsedSeconds), errors };
-  }, [startTime, endTime, now, userInput.length, errors]);
+    
+    // Accuracy based on explicit counters to ensure 100% logic precision
+    const totalPresses = correctKeypresses + incorrectKeypresses;
+    const accuracy = totalPresses > 0 
+      ? Math.round((correctKeypresses / totalPresses) * 100) 
+      : 100;
+      
+    return { wpm, accuracy, elapsedTime: Math.round(elapsedSeconds), errors: incorrectKeypresses };
+  }, [startTime, endTime, now, userInput.length, correctKeypresses, incorrectKeypresses]);
 
   const handleRestart = useCallback(() => {
     setUserInput('');
     setStartTime(null);
     setEndTime(null);
-    setErrors(0);
+    setCorrectKeypresses(0);
+    setIncorrectKeypresses(0);
     setMistakenChars(new Set());
     setNow(Date.now());
   }, []);
@@ -163,29 +181,47 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore repeats and non-typing modes
       if (e.repeat || !isFocused || showLevelSelector || showSettings || showAuthModal) return;
+      
+      // Ignore system shortcuts
       if (e.ctrlKey || e.altKey || e.metaKey) return;
-      if (['Tab', 'Backspace', 'Escape', 'F5', 'F12'].includes(e.key)) {
-         if (e.key === 'Tab') e.preventDefault();
-         return;
+      
+      // Explicitly handle functional keys so they don't count as errors
+      const functionalKeys = ['Shift', 'CapsLock', 'Tab', 'Control', 'Alt', 'Meta', 'Escape', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Backspace', 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12'];
+      if (functionalKeys.includes(e.key)) {
+        if (e.key === 'Tab') e.preventDefault();
+        return;
       }
+
       setActiveKeyCode(e.code);
       setTimeout(() => setActiveKeyCode(null), 100);
+
+      const expected = lessonContent[userInput.length];
+      let pressedChar = e.key;
+      
+      if (language === 'ne') {
+        const key = e.key.toLowerCase();
+        pressedChar = e.shiftKey 
+          ? (NEPALI_SHIFT_MAP[e.key] || NEPALI_SHIFT_MAP[key] || e.key) 
+          : (NEPALI_MAP[key] || e.key);
+      }
+
+      // Start timer on first valid printable keypress
       if (!startTime && e.key.length === 1) {
         setStartTime(Date.now());
         setNow(Date.now());
       }
-      const expected = lessonContent[userInput.length];
-      let pressedChar = e.key;
-      if (language === 'ne') {
-        const key = e.key.toLowerCase();
-        pressedChar = e.shiftKey ? (NEPALI_SHIFT_MAP[e.key] || NEPALI_SHIFT_MAP[key] || e.key) : (NEPALI_MAP[key] || e.key);
-      }
+
       if (pressedChar === expected) {
+        setCorrectKeypresses(prev => prev + 1);
         setUserInput(prev => prev + pressedChar);
-      } else if (e.key.length === 1) {
-        setErrors(prev => prev + 1);
-        setMistakenChars(prev => new Set(prev).add(expected));
+      } else {
+        // Only count as an error if it's a character-producing key (length 1)
+        if (e.key.length === 1) {
+          setIncorrectKeypresses(prev => prev + 1);
+          setMistakenChars(prev => new Set(prev).add(expected));
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -252,7 +288,6 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Theme Toggle */}
             <button 
               onClick={() => setTheme(isDark ? 'light' : 'dark')}
               className={`p-1.5 rounded-full transition-colors ${isDark ? 'hover:bg-slate-800 text-amber-400' : 'hover:bg-slate-200 text-slate-500'}`}
@@ -277,7 +312,7 @@ const App: React.FC = () => {
               </div>
             ) : (
               <button 
-                onClick={() => setShowAuthModal(true)} 
+                onClick={() => { setShowAuthModal(true); setAuthError(null); setAuthSuccess(null); }} 
                 className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-500 transition-colors shadow-lg"
               >
                 Sign In
@@ -292,7 +327,7 @@ const App: React.FC = () => {
             </button>
             <button onClick={handleRestart} className={`p-1.5 rounded-full transition-colors ${isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-200 text-slate-500'}`}>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357-2H15" />
               </svg>
             </button>
           </div>
@@ -347,8 +382,20 @@ const App: React.FC = () => {
               </div>
               
               {authError && (
-                <div className="p-2 bg-rose-500/10 border border-rose-500/50 rounded-lg">
-                  <p className="text-[10px] text-rose-400 font-bold">{authError}</p>
+                <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-lg animate-in fade-in slide-in-from-top-1">
+                  <p className="text-[10px] text-rose-400 font-bold flex items-center gap-2">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    Error: {authError}
+                  </p>
+                </div>
+              )}
+
+              {authSuccess && (
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg animate-in fade-in slide-in-from-top-1">
+                  <p className="text-[10px] text-emerald-400 font-bold flex items-center gap-2">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    {authSuccess}
+                  </p>
                 </div>
               )}
 
@@ -362,7 +409,7 @@ const App: React.FC = () => {
 
             <div className="mt-6 pt-6 border-t border-slate-800 text-center">
               <button 
-                onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
+                onClick={() => { setAuthMode(authMode === 'login' ? 'signup' : 'login'); setAuthError(null); setAuthSuccess(null); }}
                 className="text-xs text-slate-400 hover:text-blue-400 transition-colors"
               >
                 {authMode === 'login' ? "New here? Create account" : "Have account? Login"}
