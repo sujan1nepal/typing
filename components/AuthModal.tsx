@@ -9,6 +9,8 @@ interface AuthModalProps {
 const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -19,8 +21,12 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
     setLoading(true);
 
     try {
+      if (isSignUp && (!firstName || !lastName)) {
+        throw new Error("Full name is required");
+      }
+
       const { data, error: authError } = isSignUp 
-        ? await signUpWithEmail(email, password)
+        ? await signUpWithEmail(email, password, firstName, lastName)
         : await signInWithEmail(email, password);
 
       if (authError) throw authError;
@@ -46,10 +52,37 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
           {isSignUp ? 'Create Account' : 'Welcome Back'}
         </h2>
         <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-8">
-          {isSignUp ? 'Start your journey to mastery' : 'Sign in to sync your progress'}
+          {isSignUp ? 'Join the Typist Elite' : 'Sign in to sync your progress'}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {isSignUp && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[8px] font-black uppercase text-slate-500 mb-1 tracking-widest ml-1">First Name</label>
+                <input 
+                  type="text" 
+                  required
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+                  placeholder="John"
+                />
+              </div>
+              <div>
+                <label className="block text-[8px] font-black uppercase text-slate-500 mb-1 tracking-widest ml-1">Last Name</label>
+                <input 
+                  type="text" 
+                  required
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+                  placeholder="Doe"
+                />
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="block text-[8px] font-black uppercase text-slate-500 mb-1 tracking-widest ml-1">Email Address</label>
             <input 
@@ -89,7 +122,10 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
         </form>
 
         <button 
-          onClick={() => setIsSignUp(!isSignUp)}
+          onClick={() => {
+            setIsSignUp(!isSignUp);
+            setError(null);
+          }}
           className="mt-6 text-[9px] font-black uppercase text-slate-500 hover:text-blue-400 tracking-widest transition-all"
         >
           {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}

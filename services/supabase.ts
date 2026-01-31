@@ -6,10 +6,16 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-export const signUpWithEmail = async (email: string, password: string) => {
+export const signUpWithEmail = async (email: string, password: string, firstName: string, lastName: string) => {
   return await supabase.auth.signUp({
     email,
     password,
+    options: {
+      data: {
+        first_name: firstName,
+        last_name: lastName
+      }
+    }
   });
 };
 
@@ -25,19 +31,36 @@ export const signOut = async () => {
   if (error) console.error('Error logging out:', error.message);
 };
 
-export const getLeaderboard = async () => {
-  const { data, error } = await supabase
+export const updateUserProfile = async (userId: string, updates: { first_name: string; last_name: string }) => {
+  const { error } = await supabase
     .from('profiles')
-    .select('email, current_level, max_wpm, max_accuracy')
-    .order('current_level', { ascending: false })
-    .order('max_wpm', { ascending: false })
-    .limit(50);
+    .update({
+      ...updates,
+      updated_at: new Date()
+    })
+    .eq('id', userId);
   
-  if (error) {
-    console.error('Error fetching leaderboard:', error);
+  if (error) throw error;
+};
+
+export const getLeaderboard = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, email, first_name, last_name, current_level, max_wpm, max_accuracy')
+      .order('current_level', { ascending: false })
+      .order('max_wpm', { ascending: false })
+      .limit(50);
+    
+    if (error) {
+      console.error('Supabase Leaderboard Error:', error.message);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.error('Unexpected Global Masters Error:', err);
     return [];
   }
-  return data;
 };
 
 export const resetUserProgress = async (userId: string) => {
