@@ -1,10 +1,13 @@
 
+export type LevelCategory = 'Home Row' | 'Top Row' | 'Bottom Row' | 'Mastery Mix' | 'Custom';
+
 export interface Lesson {
   id: number;
+  level: number;
   title: string;
   description: string;
   content: string;
-  category: 'Home Row' | 'Top Row' | 'Bottom Row' | 'Numbers' | 'Symbols' | 'Words' | 'Custom';
+  category: LevelCategory;
 }
 
 export interface TypingStats {
@@ -12,7 +15,6 @@ export interface TypingStats {
   accuracy: number;
   errors: number;
   elapsedTime: number;
-  isFinished: boolean;
 }
 
 export interface KeyMapItem {

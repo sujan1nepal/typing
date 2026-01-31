@@ -4,6 +4,8 @@ import { Lesson, KeyboardRow } from './types';
 export const ENGLISH_LESSONS: Lesson[] = [
   {
     id: 1,
+    // Add missing level property
+    level: 1,
     title: "Home Row Basics",
     description: "Start with the foundation: asdf jkl;",
     content: "asdf jkl; asdf jkl; a s d f j k l ; asdf jkl; asdf jkl; aa ss dd ff jj kk ll ;; asdf jkl;",
@@ -11,6 +13,8 @@ export const ENGLISH_LESSONS: Lesson[] = [
   },
   {
     id: 2,
+    // Add missing level property
+    level: 2,
     title: "Home Row Reach",
     description: "Expanding to G and H",
     content: "asdfg hjkl; asdfg hjkl; fgh jkl asdf gh jkl; fg hj kl asdf gh jkl; asdfg hjkl;",
@@ -21,6 +25,8 @@ export const ENGLISH_LESSONS: Lesson[] = [
 export const NEPALI_LESSONS: Lesson[] = [
   {
     id: 101,
+    // Add missing level property
+    level: 1,
     title: "नेपाली होम रो (Home Row)",
     description: "अभ्यास: ब क म ा न ज व प ि स",
     // Lesson text as requested: "ब क म ा न ज व प ि स"
@@ -29,17 +35,23 @@ export const NEPALI_LESSONS: Lesson[] = [
   },
   {
     id: 102,
+    // Add missing level property
+    level: 2,
     title: "आधारभूत शब्दहरू (Basic Words)",
     description: "अभ्यास: कमल, वन, वस, नाम",
     content: "कमल वन वस नाम कमल वन वस नाम कमल वन वस नाम कमल वन वस नाम",
-    category: 'Words'
+    // Fix invalid category 'Words' to 'Home Row'
+    category: 'Home Row'
   },
   {
     id: 103,
+    // Add missing level property
+    level: 3,
     title: "होम रो संयोजन",
     description: "मिश्रित अभ्यास",
     content: "बक मान जव पिस बक मान जव पिस बक मान जव पिस बक मान जव पिस",
-    category: 'Words'
+    // Fix invalid category 'Words' to 'Home Row'
+    category: 'Home Row'
   }
 ];
 

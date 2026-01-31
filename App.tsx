@@ -1,14 +1,15 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { TypingStats, Lesson } from './types';
-import { ENGLISH_LESSONS, NEPALI_LESSONS, NEPALI_MAP, NEPALI_SHIFT_MAP } from './constants';
+import { TypingStats, LevelCategory } from './types';
+import { NEPALI_MAP, NEPALI_SHIFT_MAP } from './constants';
 import Keyboard from './components/Keyboard';
 import TypingArea from './components/TypingArea';
-import { getAIFeedback, generateDrillFromMistakes } from './services/gemini';
+import { getAIFeedback } from './services/gemini';
+import { getLessonText, getLevelCategory } from './services/levelGenerator';
 
 const App: React.FC = () => {
   const [language, setLanguage] = useState<'en' | 'ne'>('en');
-  const [currentLessonIndex, setCurrentLessonIndex] = useState(0);
+  const [level, setLevel] = useState(1);
   const [userInput, setUserInput] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [startTime, setStartTime] = useState<number | null>(null);
@@ -17,14 +18,16 @@ const App: React.FC = () => {
   const [activeKeyCode, setActiveKeyCode] = useState<string | null>(null);
   const [showResults, setShowResults] = useState(false);
   const [aiFeedback, setAiFeedback] = useState<string>('');
-  const [isGeneratingDrill, setIsGeneratingDrill] = useState(false);
   const [mistakenChars, setMistakenChars] = useState<Set<string>>(new Set());
+  const [lastHeatmap, setLastHeatmap] = useState<Set<string>>(new Set());
+  const [showLevelSelector, setShowLevelSelector] = useState(false);
   
   const [now, setNow] = useState(Date.now());
 
-  const lessons = language === 'en' ? ENGLISH_LESSONS : NEPALI_LESSONS;
-  const lesson = lessons[currentLessonIndex] || lessons[0];
-  const targetChar = lesson.content[userInput.length] || '';
+  // Procedurally generate lesson content based on current level and language
+  const lessonContent = useMemo(() => getLessonText(level, language), [level, language]);
+  const targetChar = lessonContent[userInput.length] || '';
+  const currentCategory = getLevelCategory(level);
 
   useEffect(() => {
     let interval: number;
@@ -40,43 +43,42 @@ const App: React.FC = () => {
     if (!startTime) {
       return { wpm: 0, accuracy: 100, elapsedTime: 0, errors };
     }
-
     const currentEnd = endTime || now;
     const elapsedSeconds = Math.max((currentEnd - startTime) / 1000, 0.001);
     const elapsedMinutes = elapsedSeconds / 60;
-    
     const wpm = Math.round((userInput.length / 5) / elapsedMinutes);
     const totalAttempted = userInput.length + errors;
     const accuracy = totalAttempted > 0 
       ? Math.round(((totalAttempted - errors) / totalAttempted) * 100) 
       : 100;
 
-    return {
-      wpm,
-      accuracy,
-      elapsedTime: Math.round(elapsedSeconds),
-      errors
-    };
+    return { wpm, accuracy, elapsedTime: Math.round(elapsedSeconds), errors };
   }, [startTime, endTime, now, userInput.length, errors]);
+
+  // Strict Level Requirement: WPM > 40 and 100% Accuracy
+  const isLevelPassed = useMemo(() => {
+    return stats.wpm > 40 && stats.accuracy === 100;
+  }, [stats.wpm, stats.accuracy]);
 
   const finishLesson = useCallback(async (finalWpm: number, finalAccuracy: number) => {
     setShowResults(true);
     setAiFeedback("Analyzing your performance...");
+    setLastHeatmap(new Set(mistakenChars)); // Capture heatmap
     try {
       const feedback = await getAIFeedback(finalWpm, finalAccuracy);
       setAiFeedback(feedback);
     } catch (e) {
-      setAiFeedback("Great job! You've mastered this lesson.");
+      setAiFeedback("Great effort! Muscle memory is built through repetition.");
     }
-  }, []);
+  }, [mistakenChars]);
 
   useEffect(() => {
-    if (userInput.length > 0 && userInput.length === lesson.content.length && !showResults) {
+    if (userInput.length > 0 && userInput.length === lessonContent.length && !showResults) {
       const finalEndTime = Date.now();
       setEndTime(finalEndTime);
       finishLesson(stats.wpm, stats.accuracy);
     }
-  }, [userInput.length, lesson.content.length, showResults, stats.wpm, stats.accuracy, finishLesson]);
+  }, [userInput.length, lessonContent.length, showResults, stats.wpm, stats.accuracy, finishLesson]);
 
   const handleRestart = () => {
     setUserInput('');
@@ -88,41 +90,21 @@ const App: React.FC = () => {
     setNow(Date.now());
   };
 
-  const handleNextLesson = () => {
-    if (currentLessonIndex < lessons.length - 1) {
-      setCurrentLessonIndex(prev => prev + 1);
+  const handleNextLevel = () => {
+    if (level < 100 && isLevelPassed) {
+      setLevel(prev => prev + 1);
       handleRestart();
     }
   };
 
   const handleLanguageToggle = (lang: 'en' | 'ne') => {
     setLanguage(lang);
-    setCurrentLessonIndex(0);
     handleRestart();
-  };
-
-  const handleAIJump = async () => {
-    setIsGeneratingDrill(true);
-    const chars = Array.from(mistakenChars) as string[];
-    const customDrill = await generateDrillFromMistakes(chars);
-    if (customDrill) {
-      const customLesson: Lesson = {
-        id: Date.now(),
-        title: "AI Power Drill",
-        description: `Custom practice focusing on: ${chars.join(' ')}`,
-        content: customDrill,
-        category: 'Custom'
-      };
-      lessons.push(customLesson);
-      setCurrentLessonIndex(lessons.length - 1);
-      handleRestart();
-    }
-    setIsGeneratingDrill(false);
   };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isFocused || showResults) return;
+      if (!isFocused || showResults || showLevelSelector) return;
       if (e.ctrlKey || e.altKey || e.metaKey) return;
       if (['Tab', 'Backspace', 'Escape', 'F5', 'F12'].includes(e.key)) {
          if (e.key === 'Tab') e.preventDefault();
@@ -137,7 +119,7 @@ const App: React.FC = () => {
         setNow(Date.now());
       }
 
-      const expected = lesson.content[userInput.length];
+      const expected = lessonContent[userInput.length];
       let pressedChar = e.key;
 
       if (language === 'ne') {
@@ -159,7 +141,7 @@ const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isFocused, userInput, startTime, lesson.content, showResults, language]);
+  }, [isFocused, userInput, startTime, lessonContent, showResults, language, showLevelSelector]);
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-slate-950 text-slate-200 flex flex-col justify-between">
@@ -170,9 +152,13 @@ const App: React.FC = () => {
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg">
               <span className="text-lg font-bold italic">T</span>
             </div>
-            <div className="hidden sm:block">
-              <h1 className="text-sm font-bold tracking-tight">TypingPro</h1>
-            </div>
+            <button 
+              onClick={() => setShowLevelSelector(true)}
+              className="flex flex-col items-start px-3 py-1 bg-slate-900/50 rounded-lg border border-slate-800 hover:border-blue-500 transition-colors"
+            >
+              <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Select Level</span>
+              <span className="text-xs font-bold text-slate-200">LVL {level} • {currentCategory}</span>
+            </button>
             
             <div className="flex bg-slate-900 p-0.5 rounded-lg border border-slate-800 ml-2">
               <button 
@@ -216,22 +202,14 @@ const App: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
             </button>
-            <div className="px-1.5 py-0.5 bg-slate-800 rounded-md text-[8px] font-semibold text-slate-300">
-              LVL {currentLessonIndex + 1}
-            </div>
           </div>
         </header>
-
-        <div className="text-center py-1 space-y-0">
-          <h2 className={`text-lg font-bold text-slate-100 ${language === 'ne' ? 'nepali' : ''}`}>{lesson.title}</h2>
-          <p className={`text-[10px] text-slate-400 ${language === 'ne' ? 'nepali' : ''}`}>{lesson.description}</p>
-        </div>
       </div>
 
       {/* Typing Area - Flexibly fills middle space */}
       <div className="flex-grow flex flex-col items-center justify-center px-4 overflow-hidden" onClick={() => setIsFocused(true)}>
         <TypingArea 
-          content={lesson.content} 
+          content={lessonContent} 
           userInput={userInput} 
           isFocused={isFocused} 
           language={language}
@@ -240,47 +218,124 @@ const App: React.FC = () => {
 
       {/* Keyboard - Fixed at bottom */}
       <div className="flex-none w-full">
-        <Keyboard targetChar={targetChar} activeCode={activeKeyCode} language={language} />
+        <Keyboard 
+          targetChar={targetChar} 
+          activeCode={activeKeyCode} 
+          language={language}
+          errorHeatmap={showResults ? lastHeatmap : new Set()} 
+        />
       </div>
+
+      {/* Level Selector Modal */}
+      {showLevelSelector && (
+        <div className="fixed inset-0 bg-slate-950/95 flex items-center justify-center z-[200] backdrop-blur-md">
+          <div className="w-full max-w-4xl h-[80vh] bg-slate-900 border border-slate-800 rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-2xl font-bold">Curriculum Roadmap</h2>
+                <p className="text-slate-400 text-sm">Select a level to begin your training</p>
+              </div>
+              <button 
+                onClick={() => setShowLevelSelector(false)}
+                className="p-2 hover:bg-slate-800 rounded-full text-slate-500 hover:text-white transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar">
+              {(['Home Row', 'Top Row', 'Bottom Row', 'Mastery Mix'] as const).map(cat => (
+                <div key={cat} className="mb-8">
+                  <h3 className="text-blue-400 text-xs font-black uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                    <span className="w-8 h-px bg-blue-500/30"></span> {cat}
+                  </h3>
+                  <div className="grid grid-cols-5 md:grid-cols-10 gap-2">
+                    {Array.from({ length: 100 }, (_, i) => i + 1)
+                      .filter(l => getLevelCategory(l) === cat)
+                      .map(l => (
+                        <button
+                          key={l}
+                          onClick={() => {
+                            setLevel(l);
+                            setShowLevelSelector(false);
+                            handleRestart();
+                          }}
+                          className={`
+                            aspect-square rounded-xl flex items-center justify-center font-bold text-sm transition-all
+                            ${l === level 
+                              ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20 ring-2 ring-blue-400' 
+                              : 'bg-slate-800/50 text-slate-500 hover:bg-slate-800 hover:text-slate-200 border border-slate-700/30'}
+                          `}
+                        >
+                          {l}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Results Overlay */}
       {showResults && (
         <div className="fixed inset-0 bg-slate-950/90 flex items-center justify-center z-[100] backdrop-blur-sm">
           <div className="bg-slate-900 w-full max-w-sm p-6 rounded-2xl border border-slate-800 shadow-2xl space-y-4 mx-4">
             <div className="text-center space-y-1">
-              <h3 className="text-xl font-bold">Lesson Complete!</h3>
+              <h3 className="text-xl font-bold">Level {level} Result</h3>
               <p className="text-slate-400 italic text-xs px-2">"{aiFeedback}"</p>
             </div>
+            
             <div className="grid grid-cols-2 gap-3">
-              <div className="bg-slate-800/50 p-3 rounded-xl text-center">
+              <div className={`p-3 rounded-xl text-center border transition-colors ${stats.wpm > 40 ? 'bg-blue-900/20 border-blue-500/50' : 'bg-slate-800/50 border-slate-700'}`}>
                 <p className="text-[8px] text-slate-500 uppercase font-bold">WPM</p>
-                <p className="text-2xl font-black text-blue-400 mono">{stats.wpm}</p>
+                <p className={`text-2xl font-black mono ${stats.wpm > 40 ? 'text-blue-400' : 'text-slate-500'}`}>{stats.wpm}</p>
+                <p className="text-[7px] text-slate-500">Target: > 40</p>
               </div>
-              <div className="bg-slate-800/50 p-3 rounded-xl text-center">
+              <div className={`p-3 rounded-xl text-center border transition-colors ${stats.accuracy === 100 ? 'bg-emerald-900/20 border-emerald-500/50' : 'bg-slate-800/50 border-slate-700'}`}>
                 <p className="text-[8px] text-slate-500 uppercase font-bold">Accuracy</p>
-                <p className="text-2xl font-black text-emerald-400 mono">{stats.accuracy}%</p>
+                <p className={`text-2xl font-black mono ${stats.accuracy === 100 ? 'text-emerald-400' : 'text-slate-500'}`}>{stats.accuracy}%</p>
+                <p className="text-[7px] text-slate-500">Target: 100%</p>
               </div>
             </div>
+            
+            {lastHeatmap.size > 0 && (
+              <div className="text-center py-1">
+                <p className="text-[8px] text-rose-500 uppercase font-bold mb-1">Errors to fix</p>
+                <div className="flex flex-wrap justify-center gap-1">
+                  {Array.from(lastHeatmap).map(char => (
+                    <span key={char} className="px-1.5 py-0.5 bg-rose-500/10 text-rose-500 rounded text-[10px] font-bold border border-rose-500/20">
+                      {char}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!isLevelPassed && (
+              <div className="bg-amber-900/20 border border-amber-500/30 p-2 rounded-lg">
+                <p className="text-[9px] text-amber-500 text-center font-bold">
+                  ⚠️ LEVEL REPEAT REQUIRED: REACH 40+ WPM AND 100% ACCURACY TO PROGRESS.
+                </p>
+              </div>
+            )}
+
             <div className="space-y-2">
               <button 
-                onClick={handleNextLesson}
-                disabled={stats.accuracy < 90}
+                onClick={handleNextLevel}
+                disabled={!isLevelPassed}
                 className={`w-full py-2.5 rounded-lg font-bold text-sm transition-all
-                  ${stats.accuracy >= 90 ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}
+                  ${isLevelPassed ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}
                 `}
               >
-                {stats.accuracy >= 90 ? 'CONTINUE' : '90% ACCURACY REQUIRED'}
+                {isLevelPassed ? 'NEXT LEVEL' : 'LOCKED: REQUIREMENTS NOT MET'}
               </button>
-              <div className="flex gap-2">
-                <button onClick={handleRestart} className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-lg text-xs">
-                  RETRY
-                </button>
-                {mistakenChars.size > 0 && (
-                  <button onClick={handleAIJump} disabled={isGeneratingDrill} className="flex-1 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 font-semibold rounded-lg border border-amber-600/30 text-xs">
-                    {isGeneratingDrill ? 'DRILLING...' : 'AI DRILL'}
-                  </button>
-                )}
-              </div>
+              <button onClick={handleRestart} className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-lg text-xs">
+                RETRY LEVEL
+              </button>
             </div>
           </div>
         </div>
