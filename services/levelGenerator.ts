@@ -1,6 +1,6 @@
 
-import { NEPALI_MAP } from '../constants';
-import { LevelCategory } from '../types';
+import { NEPALI_MAP } from '../constants.tsx';
+import { LevelCategory } from '../types.ts';
 
 const ROW_KEYS = {
   HOME: ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'],
@@ -56,7 +56,6 @@ export const getLessonText = (level: number, language: 'en' | 'ne'): string => {
   const category = getLevelCategory(level);
   const banks = language === 'en' ? DATA_BANKS.EN : DATA_BANKS.NE;
   
-  // 1. CHARACTER DRILLS (1-100)
   if (level <= 100) {
     let charPool: string[] = [];
     const relativeLevel = (level - 1) % 25;
@@ -77,26 +76,21 @@ export const getLessonText = (level: number, language: 'en' | 'ne'): string => {
     return result.trim();
   }
 
-  // 2. WORD MASTERY (101-150)
   if (category === 'Word Mastery') {
     const wordCount = 10 + Math.floor((level - 100) / 2);
     return Array.from({ length: wordCount }, () => getRandom(banks.WORDS)).join(' ');
   }
 
-  // 3. SENTENCE FLOW (151-200)
   if (category === 'Sentence Flow') {
     const sentenceCount = 2 + Math.floor((level - 150) / 15);
     return Array.from({ length: sentenceCount }, () => getRandom(banks.SENTENCES)).join(' ');
   }
 
-  // 4. PARAGRAPH STAMINA (201-250)
   if (category === 'Paragraph Stamina') {
     const pIndex = (level - 201) % banks.PARAGRAPHS.length;
     return banks.PARAGRAPHS[pIndex];
   }
 
-  // 5. EXTREME MASTERY (251-300)
-  // Combines long paragraphs and shifts
   const mixParagraph = banks.PARAGRAPHS[0] + " " + banks.SENTENCES[0] + " " + banks.WORDS.slice(0, 5).join(' ');
   return mixParagraph.slice(0, 300 + (level - 250) * 10);
 };

@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { NEPALI_MAP, NEPALI_SHIFT_MAP } from './constants';
-import Keyboard from './components/Keyboard';
-import TypingArea from './components/TypingArea';
-import Hands from './components/Hands';
-import { getLessonText, getLevelCategory } from './services/levelGenerator';
-import { LevelCategory } from './types';
-import { supabase, signInWithEmail, signUpWithEmail, signOut } from './services/supabase';
+import { NEPALI_MAP, NEPALI_SHIFT_MAP } from './constants.tsx';
+import Keyboard from './components/Keyboard.tsx';
+import TypingArea from './components/TypingArea.tsx';
+import Hands from './components/Hands.tsx';
+import { getLessonText, getLevelCategory } from './services/levelGenerator.ts';
+import { LevelCategory } from './types.ts';
+import { supabase, signInWithEmail, signUpWithEmail, signOut } from './services/supabase.ts';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<any>(null);

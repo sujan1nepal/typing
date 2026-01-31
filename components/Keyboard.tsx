@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { KEYBOARD_LAYOUT, NEPALI_MAP, NEPALI_SHIFT_MAP } from '../constants';
+import { KEYBOARD_LAYOUT, NEPALI_MAP, NEPALI_SHIFT_MAP } from '../constants.tsx';
 
 interface KeyboardProps {
   targetChar: string;

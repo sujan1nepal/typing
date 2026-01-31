@@ -1,10 +1,9 @@
 
-import { Lesson, KeyboardRow } from './types';
+import { Lesson, KeyboardRow } from './types.ts';
 
 export const ENGLISH_LESSONS: Lesson[] = [
   {
     id: 1,
-    // Add missing level property
     level: 1,
     title: "Home Row Basics",
     description: "Start with the foundation: asdf jkl;",
@@ -13,7 +12,6 @@ export const ENGLISH_LESSONS: Lesson[] = [
   },
   {
     id: 2,
-    // Add missing level property
     level: 2,
     title: "Home Row Reach",
     description: "Expanding to G and H",
@@ -25,52 +23,39 @@ export const ENGLISH_LESSONS: Lesson[] = [
 export const NEPALI_LESSONS: Lesson[] = [
   {
     id: 101,
-    // Add missing level property
     level: 1,
     title: "नेपाली होम रो (Home Row)",
     description: "अभ्यास: ब क म ा न ज व प ि स",
-    // Lesson text as requested: "ब क म ा न ज व प ि स"
     content: "ब क म ा न ज व प ि स ब क म ा न ज व प ि स ब क म ा न ज व प ि स",
     category: 'Home Row'
   },
   {
     id: 102,
-    // Add missing level property
     level: 2,
     title: "आधारभूत शब्दहरू (Basic Words)",
     description: "अभ्यास: कमल, वन, वस, नाम",
     content: "कमल वन वस नाम कमल वन वस नाम कमल वन वस नाम कमल वन वस नाम",
-    // Fix invalid category 'Words' to 'Home Row'
     category: 'Home Row'
   },
   {
     id: 103,
-    // Add missing level property
     level: 3,
     title: "होम रो संयोजन",
     description: "मिश्रित अभ्यास",
     content: "बक मान जव पिस बक मान जव पिस बक मान जव पिस बक मान जव पिस",
-    // Fix invalid category 'Words' to 'Home Row'
     category: 'Home Row'
   }
 ];
 
-// EXACT KEY MAPPING FROM USER PROMPT
 export const NEPALI_MAP: Record<string, string> = {
-  // Home Row: [a=ब], [s=क], [d=म], [f=ा], [g=न], [h=ज], [j=व], [k=प], [l=ि], [;=स]
   'a': 'ब', 's': 'क', 'd': 'म', 'f': 'ा', 'g': 'न', 'h': 'ज', 'j': 'व', 'k': 'प', 'l': 'ि', ';': 'स',
-  // Top Row: [q=त्र], [w=ध], [e=भ], [r=च], [t=त], [y=थ], [u=ग], [i=ष], [o=य], [p=उ]
   'q': 'त्र', 'w': 'ध', 'e': 'भ', 'r': 'च', 't': 'त', 'y': 'थ', 'u': 'ग', 'i': 'ष', 'o': 'य', 'p': 'उ',
-  // Bottom Row: [z=श], [x=ह], [c=अ], [v=ख], [b=द], [n=ल], [m=ङ]
   'z': 'श', 'x': 'ह', 'c': 'अ', 'v': 'ख', 'b': 'द', 'n': 'ल', 'm': 'ङ',
-  // Symbols and Numbers
   '1': '१', '2': '२', '3': '३', '4': '४', '5': '५', '6': '६', '7': '७', '8': '८', '9': '९', '0': '०',
   '/': 'ः', "'": 'य्', ' ': ' ', '[': 'ृ', ']': 'े', ',': 'ो', '.': 'ौ', '\\': '्र'
 };
 
 export const NEPALI_SHIFT_MAP: Record<string, string> = {
-  // Shift Mapping based on User Prompt and Traditional Rules
-  // Prompt: [Shift+s=ख्], [Shift+d=ष्], [Shift+f=ा], [Shift+k=फ्]
   'A': 'ब्', 'S': 'ख्', 'D': 'ष्', 'F': 'ा', 'G': 'न्', 'H': 'ज्', 'J': 'व्', 'K': 'फ्', 'L': 'ी', ':': 'स्',
   'Q': 'त्त', 'W': 'ध्र', 'E': 'भ्र', 'R': 'च्र', 'T': 'त्र', 'Y': 'थ्र', 'U': 'गि', 'I': 'षि', 'O': 'यि', 'P': 'उि',
   'Z': 'श्', 'X': 'ह्', 'C': 'अ्र', 'V': 'ख्', 'B': 'द्', 'N': 'ल्', 'M': 'ङ्र',
