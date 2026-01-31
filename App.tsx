@@ -26,11 +26,12 @@ const App: React.FC = () => {
   const [targetAccuracy, setTargetAccuracy] = useState(95);
   
   // Engine State
+  const [language, setLanguage] = useState<'en' | 'ne'>('en');
   const [userInput, setUserInput] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [endTime, setEndTime] = useState<number | null>(null);
-  const [isTransitioning, setIsTransitioning] = useState(false); // Guard for level jumping
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const [correctKeypresses, setCorrectKeypresses] = useState(0);
   const [incorrectKeypresses, setIncorrectKeypresses] = useState(0);
   const [activeKeyCode, setActiveKeyCode] = useState<string | null>(null);
@@ -101,9 +102,9 @@ const App: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const newUser = session?.user ?? null;
       setUser(newUser);
-      if (newUser) await syncUserData(newUser.id, newUser.email!);
-      else {
-        // Handle logout cleanup locally
+      if (newUser) {
+        await syncUserData(newUser.id, newUser.email!);
+      } else {
         setLevel(1);
         setMaxReachedLevel(1);
         handleRestart();
@@ -117,26 +118,6 @@ const App: React.FC = () => {
     if (appMode === 'leaderboard') fetchLeaderboardData();
   }, [appMode, fetchLeaderboardData]);
 
-  const saveProgress = async (newLvl: number, wpm: number = 0, acc: number = 0) => {
-    if (!user) return;
-    try {
-      const { data: profile } = await supabase.from('profiles').select('max_wpm, max_accuracy').eq('id', user.id).maybeSingle();
-      await supabase.from('profiles').upsert({ 
-        id: user.id,
-        email: user.email,
-        current_level: newLvl, 
-        max_wpm: Math.max(profile?.max_wpm || 0, wpm),
-        max_accuracy: Math.max(profile?.max_accuracy || 0, acc),
-        target_wpm: targetWpm,
-        target_accuracy: targetAccuracy,
-        updated_at: new Date() 
-      });
-      fetchLeaderboardData();
-    } catch (e) {
-      console.error("Save progress error:", e);
-    }
-  };
-
   const handleRestart = useCallback(() => {
     setUserInput('');
     setStartTime(null);
@@ -146,8 +127,29 @@ const App: React.FC = () => {
     setIncorrectKeypresses(0);
   }, []);
 
-  const language = useMemo(() => (level > 400 ? 'ne' : 'en'), [level]);
-  const lessonContent = useMemo(() => getLessonText(level, 'en'), [level]);
+  const saveProgress = async (newLvl: number, wpm: number = 0, acc: number = 0) => {
+    if (!user) return;
+    try {
+      const { data: profile } = await supabase.from('profiles').select('max_wpm, max_accuracy, current_level').eq('id', user.id).maybeSingle();
+      
+      // Strict: Only update level if they finished the actual target level
+      const currentDbLevel = profile?.current_level || 1;
+      const updatedLevel = Math.max(currentDbLevel, newLvl);
+
+      await supabase.from('profiles').update({ 
+        current_level: updatedLevel, 
+        max_wpm: Math.max(profile?.max_wpm || 0, wpm),
+        max_accuracy: Math.max(profile?.max_accuracy || 0, acc),
+        updated_at: new Date() 
+      }).eq('id', user.id);
+      
+      fetchLeaderboardData();
+    } catch (e) {
+      console.error("Save progress error:", e);
+    }
+  };
+
+  const lessonContent = useMemo(() => getLessonText(level, language), [level, language]);
   const targetChar = lessonContent[userInput.length] || '';
 
   useEffect(() => {
@@ -177,6 +179,7 @@ const App: React.FC = () => {
       const passed = stats.wpm >= targetWpm && stats.accuracy >= targetAccuracy;
       if (passed) {
         const next = level + 1;
+        // Optimization: UI updates immediately, DB sync follows
         setLevel(next);
         setMaxReachedLevel(prev => Math.max(prev, next));
         if (user) saveProgress(next, stats.wpm, stats.accuracy);
@@ -192,13 +195,21 @@ const App: React.FC = () => {
   }, [userInput.length, lessonContent.length, level, targetWpm, targetAccuracy, user, stats.wpm, stats.accuracy, endTime, isTransitioning]);
 
   const handleReset = async () => {
-    if (!user) { setLevel(1); setMaxReachedLevel(1); handleRestart(); return; }
-    if (confirm("Reset progress to Level 1?")) {
-      await resetUserProgress(user.id);
+    if (!confirm("Are you sure? This will wipe your rank and progress permanently.")) return;
+    
+    try {
+      if (user) {
+        await resetUserProgress(user.id);
+        await fetchLeaderboardData();
+      }
       setLevel(1);
       setMaxReachedLevel(1);
       handleRestart();
       setShowSettings(false);
+      alert("Progress has been cleared.");
+    } catch (err) {
+      console.error("Reset failed:", err);
+      alert("Failed to reset progress. Please check your connection.");
     }
   };
 
@@ -214,16 +225,22 @@ const App: React.FC = () => {
       
       if (!startTime) setStartTime(Date.now());
       
-      if (e.key === targetChar) {
+      let char = e.key;
+      if (language === 'ne') {
+        const k = e.key.toLowerCase();
+        char = e.shiftKey ? (NEPALI_SHIFT_MAP[e.key] || NEPALI_SHIFT_MAP[k] || e.key) : (NEPALI_MAP[k] || e.key);
+      }
+
+      if (char === targetChar) {
         setCorrectKeypresses(p => p + 1);
-        setUserInput(p => p + e.key);
+        setUserInput(p => p + char);
       } else if (e.key.length === 1) {
         setIncorrectKeypresses(p => p + 1);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [isFocused, userInput, startTime, targetChar, showAuthModal, showLevelSelector, showSettings, showProfileModal, appMode, endTime, isTransitioning]);
+  }, [isFocused, userInput, startTime, targetChar, language, showAuthModal, showLevelSelector, showSettings, showProfileModal, appMode, endTime, isTransitioning]);
 
   const colors = theme === 'dark' ? {
     bg: 'bg-[#020617]',
@@ -285,6 +302,11 @@ const App: React.FC = () => {
               </button>
             </>
           )}
+          <div className={`flex p-1 ${theme === 'dark' ? 'bg-slate-900/40 border-slate-800/50' : 'bg-slate-200/50 border-slate-300/50'} rounded-lg border`}>
+            {(['en', 'ne'] as const).map(l => (
+              <button key={l} onClick={() => { setLanguage(l); handleRestart(); }} className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${language === l ? 'bg-blue-600 text-white shadow-sm' : colors.sub}`}>{l}</button>
+            ))}
+          </div>
           {user ? (
             <div onClick={() => setShowProfileModal(true)} title="My Profile" className="w-7 h-7 rounded-full bg-blue-600 border border-blue-400 flex items-center justify-center font-bold text-white text-[10px] cursor-pointer hover:bg-blue-500 hover:scale-110 transition-all">
               {user.email ? user.email[0].toUpperCase() : '?'}
@@ -335,7 +357,7 @@ const App: React.FC = () => {
                <Hands targetChar={targetChar} theme={theme} side="left" />
             </div>
             <div className="flex-grow flex flex-col items-center max-w-4xl">
-               <TypingArea content={lessonContent} userInput={userInput} isFocused={isFocused} language={'en'} theme={theme} onFocus={() => setIsFocused(true)} />
+               <TypingArea content={lessonContent} userInput={userInput} isFocused={isFocused} language={language} theme={theme} onFocus={() => setIsFocused(true)} />
             </div>
             <div className="hidden lg:block absolute right-[-40px] xl:right-0 opacity-100 transition-opacity duration-500">
                <Hands targetChar={targetChar} theme={theme} side="right" />
@@ -348,7 +370,7 @@ const App: React.FC = () => {
         <div className="flex justify-center mb-6 lg:hidden">
            <Hands targetChar={targetChar} theme={theme} side="both" />
         </div>
-        <Keyboard targetChar={targetChar} activeCode={activeKeyCode} language={'en'} />
+        <Keyboard targetChar={targetChar} activeCode={activeKeyCode} language={language} />
       </footer>
 
       {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
