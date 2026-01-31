@@ -14,37 +14,47 @@ const TypingArea: React.FC<TypingAreaProps> = ({ content, userInput, isFocused, 
   
   return (
     <div className={`
-      relative w-[80vw] max-w-4xl md:min-h-[180px] p-6 md:p-8 rounded-2xl border transition-all duration-300 backdrop-blur-md overflow-hidden flex items-start justify-center
-      ${isFocused 
-        ? (isDark ? 'bg-slate-900/40 border-blue-500/30 shadow-xl' : 'bg-white border-blue-300 shadow-md') 
-        : (isDark ? 'bg-slate-900/20 border-slate-800' : 'bg-slate-100/50 border-slate-200')}
+      relative w-full max-w-4xl min-h-[240px] p-10 md:p-12 rounded-sm border shadow-sm transition-all duration-300 overflow-hidden flex flex-col items-start
+      ${isDark 
+        ? 'bg-slate-900 border-slate-800' 
+        : 'bg-white border-slate-200'}
+      ${isFocused && (isDark ? 'ring-1 ring-blue-900' : 'ring-1 ring-blue-100')}
     `}>
+      {/* Paper texture/line effect for document feel */}
+      <div className={`absolute inset-0 opacity-[0.03] pointer-events-none ${isDark ? 'bg-[url("https://www.transparenttextures.com/patterns/carbon-fibre.png")]' : 'bg-[url("https://www.transparenttextures.com/patterns/lined-paper.png")]'}`}></div>
+
       <div className={`
-        text-[20px] leading-[1.6] tracking-normal text-left h-full flex flex-wrap justify-start content-start max-w-full font-normal
+        relative z-10 text-[20px] leading-[1.8] tracking-normal text-left h-full flex flex-wrap justify-start content-start w-full font-normal
         ${language === 'ne' ? 'nepali' : 'mono'}
-        ${isDark ? 'text-slate-400' : 'text-slate-500'}
+        ${isDark ? 'text-slate-500' : 'text-slate-400'}
       `}>
         {content.split('').map((char, index) => {
-          let colorClass = isDark ? 'text-slate-600' : 'text-slate-300';
+          const isTyped = index < userInput.length;
           const isCurrent = index === userInput.length;
+          const isCorrect = isTyped && userInput[index] === char;
 
-          if (index < userInput.length) {
-            colorClass = userInput[index] === char 
-              ? (isDark ? 'text-emerald-400' : 'text-emerald-600') 
-              : 'text-rose-500 bg-rose-500/10 font-bold';
+          let charColor = isDark ? 'text-slate-600' : 'text-slate-300';
+          if (isTyped) {
+            charColor = isCorrect 
+              ? (isDark ? 'text-slate-200' : 'text-slate-900') 
+              : 'text-rose-500 underline decoration-rose-500/50 decoration-2 underline-offset-4';
           } else if (isCurrent) {
-            colorClass = isDark ? 'text-slate-100' : 'text-slate-900';
+            charColor = isDark ? 'text-blue-400' : 'text-blue-600';
           }
 
           return (
             <span
               key={index}
               className={`
-                relative px-[0.05em] transition-all duration-75
-                ${colorClass}
-                ${isCurrent && isFocused ? (isDark ? 'bg-blue-500/20 border-b-2 border-blue-500' : 'bg-blue-100 border-b-2 border-blue-600') : ''}
+                relative transition-colors duration-75 inline-block
+                ${charColor}
+                ${isCurrent && isFocused ? 'bg-blue-500/10' : ''}
               `}
             >
+              {/* Cursor rendering */}
+              {isCurrent && isFocused && (
+                <span className={`absolute left-0 top-0 bottom-0 w-[2px] ${isDark ? 'bg-blue-400' : 'bg-blue-600'} animate-pulse`} />
+              )}
               {char === ' ' ? '\u00A0' : char}
             </span>
           );
@@ -52,13 +62,19 @@ const TypingArea: React.FC<TypingAreaProps> = ({ content, userInput, isFocused, 
       </div>
       
       {!isFocused && (
-        <div className={`absolute inset-0 flex items-center justify-center rounded-2xl cursor-pointer ${isDark ? 'bg-slate-950/60' : 'bg-white/40'} backdrop-blur-[2px]`} 
+        <div className={`absolute inset-0 flex items-center justify-center cursor-pointer z-20 ${isDark ? 'bg-slate-950/40' : 'bg-white/40'} backdrop-blur-[1px]`} 
              onClick={() => {}}>
-          <div className="px-6 py-2.5 bg-blue-600 text-white text-sm font-bold tracking-wider rounded-lg shadow-lg hover:bg-blue-500 transition-colors uppercase">
-            Click to start typing
+          <div className={`px-5 py-2 rounded border text-xs font-bold tracking-widest uppercase shadow-sm transition-transform hover:scale-105 ${isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-600'}`}>
+            Click to activate cursor
           </div>
         </div>
       )}
+      
+      {/* Footer hint for MS Word feel */}
+      <div className={`mt-auto pt-8 w-full flex justify-between text-[10px] font-medium uppercase tracking-tighter opacity-40 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+        <span>Section: {language.toUpperCase()} Drills</span>
+        <span>Page 1 of 1</span>
+      </div>
     </div>
   );
 };

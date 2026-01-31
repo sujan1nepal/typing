@@ -302,7 +302,7 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex-grow flex flex-col items-center justify-center px-4 overflow-hidden gap-12" onClick={() => setIsFocused(true)}>
+      <div className="flex-grow flex flex-col items-center justify-center px-4 overflow-hidden gap-6" onClick={() => setIsFocused(true)}>
         <TypingArea content={lessonContent} userInput={userInput} isFocused={isFocused} language={language} theme={theme} />
         <Hands targetChar={targetChar} theme={theme} />
       </div>
