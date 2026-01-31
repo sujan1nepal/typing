@@ -24,3 +24,32 @@ export const signOut = async () => {
   const { error } = await supabase.auth.signOut();
   if (error) console.error('Error logging out:', error.message);
 };
+
+export const getLeaderboard = async () => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('email, current_level, max_wpm, max_accuracy')
+    .order('current_level', { ascending: false })
+    .order('max_wpm', { ascending: false })
+    .limit(50);
+  
+  if (error) {
+    console.error('Error fetching leaderboard:', error);
+    return [];
+  }
+  return data;
+};
+
+export const resetUserProgress = async (userId: string) => {
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      current_level: 1,
+      max_wpm: 0,
+      max_accuracy: 0,
+      updated_at: new Date()
+    })
+    .eq('id', userId);
+  
+  if (error) throw error;
+};
