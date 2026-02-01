@@ -1,5 +1,5 @@
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 interface TypingAreaProps {
   content: string;
@@ -7,86 +7,110 @@ interface TypingAreaProps {
   isFocused: boolean;
   language: 'en' | 'ne';
   theme: 'light' | 'dark';
-  onFocus?: () => void;
 }
 
-const TypingArea: React.FC<TypingAreaProps> = ({ content, userInput, isFocused, language, theme, onFocus }) => {
+const TypingArea: React.FC<TypingAreaProps> = ({ content, userInput, isFocused, language, theme }) => {
+  const isDark = theme === 'dark';
   const containerRef = useRef<HTMLDivElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
   const activeCharRef = useRef<HTMLSpanElement>(null);
-  const [caretPos, setCaretPos] = useState({ left: 0, top: 0, height: 0 });
 
+  // Synchronize scroll with active character
   useEffect(() => {
-    if (activeCharRef.current) {
-      const char = activeCharRef.current;
-      setCaretPos({
-        left: char.offsetLeft,
-        top: char.offsetTop,
-        height: char.offsetHeight
-      });
+    if (isFocused && activeCharRef.current && containerRef.current) {
+      const container = containerRef.current;
+      const activeChar = activeCharRef.current;
 
-      if (scrollRef.current) {
-        const scroll = scrollRef.current;
-        const targetScroll = char.offsetTop - (scroll.offsetHeight / 2) + (char.offsetHeight / 2);
-        scroll.scrollTo({ top: targetScroll, behavior: 'smooth' });
-      }
+      const containerHeight = container.offsetHeight;
+      const charTop = activeChar.offsetTop;
+      const charHeight = activeChar.offsetHeight;
+
+      // Scroll so the active character is roughly in the middle of the view
+      const targetScrollTop = charTop - containerHeight / 2 + charHeight / 2;
+      
+      container.scrollTo({
+        top: targetScrollTop,
+        behavior: 'smooth'
+      });
     }
   }, [userInput.length, isFocused]);
 
   return (
-    <div className="relative w-full max-w-4xl h-[280px] flex flex-col group select-none" ref={containerRef}>
+    <div className={`
+      relative w-full max-w-4xl h-[320px] rounded-sm border shadow-sm transition-all duration-300 flex flex-col
+      ${isDark 
+        ? 'bg-slate-900 border-slate-800' 
+        : 'bg-white border-slate-200'}
+      ${isFocused && (isDark ? 'ring-1 ring-blue-900' : 'ring-1 ring-blue-100')}
+    `}>
+      {/* Paper texture/line effect */}
+      <div className={`absolute inset-0 opacity-[0.03] pointer-events-none z-0 ${isDark ? 'bg-[url("https://www.transparenttextures.com/patterns/carbon-fibre.png")]' : 'bg-[url("https://www.transparenttextures.com/patterns/lined-paper.png")]'}`}></div>
+
+      {/* Scrollable Content Area */}
       <div 
-        ref={scrollRef}
-        className="flex-grow overflow-hidden no-scrollbar py-20 px-4 relative h-full"
+        ref={containerRef}
+        className="relative z-10 flex-grow overflow-y-auto p-10 md:p-12 scroll-smooth no-scrollbar"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         <div className={`
-          relative text-5xl leading-[2.2] tracking-tight text-left flex flex-wrap gap-x-[0.25em] transition-all duration-300
-          ${language === 'ne' ? 'nepali' : 'mono font-medium'}
-          ${!isFocused ? 'blur-[12px] opacity-10 scale-[0.98]' : 'opacity-100 scale-100'}
+          text-[20px] leading-[1.8] tracking-normal text-left flex flex-wrap justify-start content-start w-full font-normal
+          ${language === 'ne' ? 'nepali' : 'mono'}
+          ${isDark ? 'text-slate-500' : 'text-slate-400'}
         `}>
-          {isFocused && (
-            <div 
-              className="absolute w-[4px] bg-blue-500 rounded-full caret-smooth z-10"
-              style={{ 
-                left: caretPos.left, 
-                top: caretPos.top + 14, 
-                height: caretPos.height - 28,
-                boxShadow: '0 0 20px rgba(59, 130, 246, 0.8)',
-                opacity: userInput.length === content.length ? 0 : 1
-              }}
-            />
-          )}
-
           {content.split('').map((char, index) => {
             const isTyped = index < userInput.length;
             const isCurrent = index === userInput.length;
             const isCorrect = isTyped && userInput[index] === char;
 
-            let charColor = 'text-slate-800'; 
+            let charColor = isDark ? 'text-slate-600' : 'text-slate-300';
             if (isTyped) {
-              charColor = isCorrect ? 'text-slate-100' : 'text-rose-500 underline decoration-[3px] underline-offset-[12px]';
+              charColor = isCorrect 
+                ? (isDark ? 'text-slate-200' : 'text-slate-900') 
+                : 'text-rose-500 underline decoration-rose-500/50 decoration-2 underline-offset-4';
+            } else if (isCurrent) {
+              charColor = isDark ? 'text-blue-400' : 'text-blue-600';
             }
 
             return (
               <span
                 key={index}
                 ref={isCurrent ? activeCharRef : null}
-                className={`transition-all duration-150 relative ${charColor}`}
+                className={`
+                  relative transition-colors duration-75 inline-block
+                  ${charColor}
+                  ${isCurrent && isFocused ? 'bg-blue-500/10' : ''}
+                `}
               >
+                {/* Cursor rendering */}
+                {isCurrent && isFocused && (
+                  <span className={`absolute left-0 top-0 bottom-0 w-[2px] ${isDark ? 'bg-blue-400' : 'bg-blue-600'} animate-pulse`} />
+                )}
                 {char === ' ' ? '\u00A0' : char}
               </span>
             );
           })}
         </div>
       </div>
-
+      
       {!isFocused && (
-        <div className="absolute inset-0 flex items-center justify-center z-50 cursor-pointer backdrop-blur-[2px]" onClick={onFocus}>
-           <div className="bg-blue-600 text-white px-14 py-6 rounded-[2rem] text-[11px] font-black uppercase tracking-[0.5em] shadow-2xl shadow-blue-500/40 hover:scale-105 active:scale-95 transition-all">
-             Initialize practice
-           </div>
+        <div className={`absolute inset-0 flex items-center justify-center cursor-pointer z-20 ${isDark ? 'bg-slate-950/40' : 'bg-white/40'} backdrop-blur-[1px]`} 
+             onClick={() => {}}>
+          <div className={`px-5 py-2 rounded border text-xs font-bold tracking-widest uppercase shadow-sm transition-transform hover:scale-105 ${isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-600'}`}>
+            Click to activate cursor
+          </div>
         </div>
       )}
+      
+      {/* Footer hint */}
+      <div className={`flex-none px-10 pb-4 w-full flex justify-between text-[10px] font-medium uppercase tracking-tighter opacity-40 z-10 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+        <span>Section: {language.toUpperCase()} Drills</span>
+        <span>Progress: {Math.round((userInput.length / content.length) * 100)}%</span>
+      </div>
+
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
     </div>
   );
 };
