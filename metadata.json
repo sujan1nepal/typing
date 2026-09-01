@@ -1,5 +1,8 @@
 {
-  "name": "TypingPro - Educational Typing Tutor",
-  "description": "A high-performance QWERTY typing tutor application featuring progressive lessons, real-time WPM/Accuracy tracking, and an interactive virtual keyboard with AI-powered personalized drill generation.",
-  "requestFramePermissions": []
+  "name": "TypingPro - Typeshala Nepali & English Typing Tutor",
+  "description": "A high-performance bilingual (Nepali & English) typing tutor application inspired by Typeshala, featuring progressive 300+ levels, real-time WPM and accuracy analytics, interactive virtual keyboard with finger guidance, and smart practice drills.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

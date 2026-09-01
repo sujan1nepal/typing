@@ -3,9 +3,9 @@ import { NEPALI_MAP } from '../constants.tsx';
 import { LevelCategory } from '../types.ts';
 
 const ROW_KEYS = {
-  HOME: ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'],
-  TOP: ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
-  BOTTOM: ['z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.'],
+  HOME: ['a', 's', 'd', 'f', 'j', 'k', 'l', ';', 'g', 'h'],
+  TOP: ['q', 'w', 'e', 'r', 'p', 'o', 'i', 'u', 't', 'y'],
+  BOTTOM: ['z', 'x', 'c', 'v', '.', ',', 'm', 'n', 'b'],
 };
 
 const DATA_BANKS = {
@@ -52,22 +52,55 @@ export const getLevelCategory = (level: number): LevelCategory => {
 
 const getRandom = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
 
+// Helper to generate repetitive beginner patterns
+const generateBeginnerPattern = (keys: string[], length: number, language: 'en' | 'ne'): string => {
+  const finalKeys = language === 'en' ? keys : keys.map(k => NEPALI_MAP[k] || k);
+  let result = "";
+  for (let i = 0; i < length / (finalKeys.length * 2); i++) {
+    finalKeys.forEach(k => {
+      result += k + k + " ";
+    });
+  }
+  return result.trim();
+};
+
 export const getLessonText = (level: number, language: 'en' | 'ne'): string => {
   const category = getLevelCategory(level);
   const banks = language === 'en' ? DATA_BANKS.EN : DATA_BANKS.NE;
   
+  // Row Drills (1-100)
   if (level <= 100) {
+    const relativeLevel = (level - 1) % 25; // 0 to 24
     let charPool: string[] = [];
-    const relativeLevel = (level - 1) % 25;
+    const length = 50 + Math.floor(level / 2);
+
+    // Beginner Intensive Repetition (First 15 levels of each row category)
+    if (relativeLevel < 15 && (category === 'Home Row' || category === 'Top Row' || category === 'Bottom Row')) {
+      const rowKeys = category === 'Home Row' ? ROW_KEYS.HOME : 
+                      category === 'Top Row' ? ROW_KEYS.TOP : ROW_KEYS.BOTTOM;
+      
+      // Every 5 levels, we focus on a specific sub-set of keys
+      if (relativeLevel < 5) {
+        // Levels 1-5, 26-30, 51-55: Primary outer keys
+        charPool = [rowKeys[0], rowKeys[1], rowKeys[6], rowKeys[7]];
+      } else if (relativeLevel < 10) {
+        // Levels 6-10, 31-35, 56-60: Primary inner keys
+        charPool = [rowKeys[2], rowKeys[3], rowKeys[4], rowKeys[5]];
+      } else {
+        // Levels 11-15, 36-40, 61-65: Full row intro
+        charPool = rowKeys;
+      }
+      return generateBeginnerPattern(charPool, length, language);
+    }
+
+    // Standard Random Mix for levels 16-25 of a category or Mastery Mix
     const poolSize = Math.min(10, 4 + Math.floor(relativeLevel / 2.5));
-    
     if (category === 'Home Row') charPool = ROW_KEYS.HOME.slice(0, poolSize);
     else if (category === 'Top Row') charPool = ROW_KEYS.TOP.slice(0, poolSize);
     else if (category === 'Bottom Row') charPool = ROW_KEYS.BOTTOM.slice(0, poolSize);
     else charPool = [...ROW_KEYS.HOME, ...ROW_KEYS.TOP, ...ROW_KEYS.BOTTOM];
 
     let finalPool = language === 'en' ? charPool : charPool.map(key => NEPALI_MAP[key] || key);
-    const length = 40 + Math.floor(level / 2);
     let result = "";
     for (let i = 0; i < length; i++) {
       if (i > 0 && i % 5 === 0) result += " ";
@@ -77,7 +110,7 @@ export const getLessonText = (level: number, language: 'en' | 'ne'): string => {
   }
 
   if (category === 'Word Mastery') {
-    const wordCount = 10 + Math.floor((level - 100) / 2);
+    const wordCount = 12 + Math.floor((level - 100) / 2);
     return Array.from({ length: wordCount }, () => getRandom(banks.WORDS)).join(' ');
   }
 
