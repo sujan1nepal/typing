@@ -1,0 +1,6 @@
+/* Global CSS for TypingPro */
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+}

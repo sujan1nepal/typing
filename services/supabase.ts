@@ -1,11 +1,7 @@
+// Local & Offline-First Storage System for Typeshala Typing Tutor
 
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = 'https://ivitjddaxpcuftljgvdo.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2aXRqZGRheHBjdWZ0bGpndmRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4NjYzNTYsImV4cCI6MjA4NTQ0MjM1Nn0._AAcH7RObOdM_quY37d6KwuXXfZSDt_m3Uk5T7LJHo8';
-
-// Fallback local storage keys
 const LOCAL_USER_KEY = 'typeshala_local_user';
+const LOCAL_USERS_DB = 'typeshala_registered_users';
 const LOCAL_PROFILE_KEY_PREFIX = 'typeshala_profile_';
 
 export interface UserProfile {
@@ -16,8 +12,31 @@ export interface UserProfile {
   updated_at?: string;
 }
 
-// Check for local session
-const getLocalUser = () => {
+export interface StoredUser {
+  id: string;
+  email: string;
+  password?: string;
+  created_at: string;
+}
+
+const getRegisteredUsers = (): StoredUser[] => {
+  try {
+    const raw = localStorage.getItem(LOCAL_USERS_DB);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveRegisteredUsers = (users: StoredUser[]) => {
+  try {
+    localStorage.setItem(LOCAL_USERS_DB, JSON.stringify(users));
+  } catch (e) {
+    console.warn('LocalStorage save failed', e);
+  }
+};
+
+const getLocalUser = (): StoredUser | null => {
   try {
     const raw = localStorage.getItem(LOCAL_USER_KEY);
     return raw ? JSON.parse(raw) : null;
@@ -26,7 +45,7 @@ const getLocalUser = () => {
   }
 };
 
-const setLocalUser = (user: any) => {
+const setLocalUser = (user: StoredUser | null) => {
   try {
     if (user) {
       localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(user));
@@ -34,7 +53,7 @@ const setLocalUser = (user: any) => {
       localStorage.removeItem(LOCAL_USER_KEY);
     }
   } catch (e) {
-    console.error('LocalStorage write failed', e);
+    console.warn('LocalStorage write failed', e);
   }
 };
 
@@ -50,10 +69,10 @@ export const getLocalProfile = (userId: string): UserProfile | null => {
 export const saveLocalProfile = (profile: UserProfile): void => {
   try {
     localStorage.setItem(`${LOCAL_PROFILE_KEY_PREFIX}${profile.id}`, JSON.stringify(profile));
-    // Also save as default guest profile
+    // Also save as current guest profile
     localStorage.setItem('typeshala_guest_profile', JSON.stringify(profile));
   } catch (e) {
-    console.error('LocalStorage write failed', e);
+    console.warn('LocalStorage write failed', e);
   }
 };
 
@@ -70,65 +89,36 @@ export const getGuestProfile = (): UserProfile => {
   };
 };
 
-let rawSupabaseClient: any = null;
-try {
-  rawSupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: false
+type AuthListener = (event: string, session: any) => void;
+const listeners: Set<AuthListener> = new Set();
+
+const notifyAuthChange = (event: string, user: StoredUser | null) => {
+  const session = user ? { user, access_token: 'local-session-token' } : null;
+  listeners.forEach((listener) => {
+    try {
+      listener(event, session);
+    } catch (e) {
+      console.warn('Auth listener error:', e);
     }
   });
-} catch (e) {
-  console.warn('Could not initialize remote Supabase client, using local mode', e);
-}
+};
 
-// Safe wrapper around Supabase with offline & local fallback
+// Safe, Zero-Network-Error Local Supabase client
 export const supabase = {
   auth: {
     getSession: async () => {
-      if (rawSupabaseClient) {
-        try {
-          const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Network timeout')), 2500)
-          );
-          const result: any = await Promise.race([
-            rawSupabaseClient.auth.getSession(),
-            timeoutPromise
-          ]);
-          if (result?.data?.session) {
-            setLocalUser(result.data.session.user);
-            return result;
-          }
-        } catch (e) {
-          console.warn('Supabase getSession failed, checking local storage session', e);
-        }
-      }
-      
-      const localUser = getLocalUser();
-      if (localUser) {
-        return { data: { session: { user: localUser, access_token: 'local-token' } }, error: null };
-      }
-      return { data: { session: null }, error: null };
+      const user = getLocalUser();
+      const session = user ? { user, access_token: 'local-session-token' } : null;
+      return { data: { session }, error: null };
     },
 
-    onAuthStateChange: (callback: (event: string, session: any) => void) => {
-      let sub: any = null;
-      if (rawSupabaseClient) {
-        try {
-          const res = rawSupabaseClient.auth.onAuthStateChange(callback);
-          sub = res?.data?.subscription;
-        } catch (e) {
-          console.warn('Supabase auth state listener fallback', e);
-        }
-      }
+    onAuthStateChange: (callback: AuthListener) => {
+      listeners.add(callback);
       return {
         data: {
           subscription: {
             unsubscribe: () => {
-              if (sub && typeof sub.unsubscribe === 'function') {
-                sub.unsubscribe();
-              }
+              listeners.delete(callback);
             }
           }
         }
@@ -136,84 +126,78 @@ export const supabase = {
     },
 
     signUp: async ({ email, password }: { email: string; password?: string }) => {
-      if (rawSupabaseClient) {
-        try {
-          const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Network timeout')), 3000)
-          );
-          const result: any = await Promise.race([
-            rawSupabaseClient.auth.signUp({ email, password: password || 'default-password' }),
-            timeoutPromise
-          ]);
-          if (result?.data?.user) {
-            setLocalUser(result.data.user);
-            return result;
-          }
-          if (!result.error) {
-            return result;
-          }
-        } catch (e) {
-          console.warn('Remote signUp failed, creating local offline account', e);
-        }
+      const trimmedEmail = email.trim().toLowerCase();
+      const users = getRegisteredUsers();
+      
+      let existing = users.find(u => u.email === trimmedEmail);
+      if (existing) {
+        setLocalUser(existing);
+        notifyAuthChange('SIGNED_IN', existing);
+        return {
+          data: { user: existing, session: { user: existing, access_token: 'token' } },
+          error: null
+        };
       }
 
-      // Offline account creation fallback
-      const localUser = {
-        id: 'user_' + Math.random().toString(36).substring(2, 9),
-        email,
+      const newUser: StoredUser = {
+        id: 'usr_' + Math.random().toString(36).substring(2, 9),
+        email: trimmedEmail,
+        password: password || '',
         created_at: new Date().toISOString()
       };
-      setLocalUser(localUser);
+
+      users.push(newUser);
+      saveRegisteredUsers(users);
+      setLocalUser(newUser);
+
+      // Create default profile for this user
+      const defaultProf: UserProfile = {
+        id: newUser.id,
+        current_level: 1,
+        target_wpm: 40,
+        target_accuracy: 100,
+        updated_at: new Date().toISOString()
+      };
+      saveLocalProfile(defaultProf);
+
+      notifyAuthChange('SIGNED_IN', newUser);
       return {
-        data: { user: localUser, session: { user: localUser } },
+        data: { user: newUser, session: { user: newUser, access_token: 'token' } },
         error: null
       };
     },
 
     signInWithPassword: async ({ email, password }: { email: string; password?: string }) => {
-      if (rawSupabaseClient) {
-        try {
-          const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Network timeout')), 3000)
-          );
-          const result: any = await Promise.race([
-            rawSupabaseClient.auth.signInWithPassword({ email, password: password || 'default-password' }),
-            timeoutPromise
-          ]);
-          if (result?.data?.session) {
-            setLocalUser(result.data.session.user);
-            return result;
-          }
-          if (!result.error) {
-            return result;
-          }
-        } catch (e) {
-          console.warn('Remote signIn failed, falling back to local account', e);
-        }
+      const trimmedEmail = email.trim().toLowerCase();
+      const users = getRegisteredUsers();
+      
+      let user = users.find(u => u.email === trimmedEmail);
+      if (!user) {
+        // Auto-register convenience
+        user = {
+          id: 'usr_' + Math.random().toString(36).substring(2, 9),
+          email: trimmedEmail,
+          password: password || '',
+          created_at: new Date().toISOString()
+        };
+        users.push(user);
+        saveRegisteredUsers(users);
+        
+        const guestProf = getGuestProfile();
+        saveLocalProfile({ ...guestProf, id: user.id });
       }
 
-      // Offline login fallback
-      const localUser = {
-        id: 'user_' + (email.split('@')[0] || 'account'),
-        email,
-        created_at: new Date().toISOString()
-      };
-      setLocalUser(localUser);
+      setLocalUser(user);
+      notifyAuthChange('SIGNED_IN', user);
       return {
-        data: { user: localUser, session: { user: localUser } },
+        data: { user, session: { user, access_token: 'token' } },
         error: null
       };
     },
 
     signOut: async () => {
       setLocalUser(null);
-      if (rawSupabaseClient) {
-        try {
-          await rawSupabaseClient.auth.signOut();
-        } catch (e) {
-          console.warn('Remote signOut failed', e);
-        }
-      }
+      notifyAuthChange('SIGNED_OUT', null);
       return { error: null };
     }
   },
@@ -223,43 +207,23 @@ export const supabase = {
       select: (_cols?: string) => ({
         eq: (_col: string, val: string) => ({
           single: async () => {
-            if (rawSupabaseClient && table === 'profiles') {
-              try {
-                const timeoutPromise = new Promise((_, reject) =>
-                  setTimeout(() => reject(new Error('Network timeout')), 2500)
-                );
-                const result: any = await Promise.race([
-                  rawSupabaseClient.from(table).select('*').eq('id', val).single(),
-                  timeoutPromise
-                ]);
-                if (result?.data) return result;
-              } catch (e) {
-                console.warn('Remote profile fetch failed, using local profile', e);
-              }
-            }
-            const local = getLocalProfile(val) || getGuestProfile();
-            return { data: local, error: null };
+            const profile = getLocalProfile(val) || getGuestProfile();
+            return { data: profile, error: null };
           }
         })
       }),
-      insert: (rows: any[]) => {
+      insert: async (rows: any[]) => {
         if (rows && rows[0]) {
           saveLocalProfile(rows[0]);
         }
-        if (rawSupabaseClient && table === 'profiles') {
-          rawSupabaseClient.from(table).insert(rows).catch((e: any) => console.warn('Remote insert failed', e));
-        }
-        return Promise.resolve({ data: rows, error: null });
+        return { data: rows, error: null };
       },
       update: (data: any) => ({
-        eq: (_col: string, val: string) => {
+        eq: async (_col: string, val: string) => {
           const current = getLocalProfile(val) || getGuestProfile();
-          const updated = { ...current, ...data, id: val };
+          const updated = { ...current, ...data, id: val, updated_at: new Date().toISOString() };
           saveLocalProfile(updated);
-          if (rawSupabaseClient && table === 'profiles') {
-            rawSupabaseClient.from(table).update(data).eq('id', val).catch((e: any) => console.warn('Remote update failed', e));
-          }
-          return Promise.resolve({ data: updated, error: null });
+          return { data: updated, error: null };
         }
       })
     };
@@ -282,6 +246,5 @@ export const signInWithEmail = async (email: string, password: string) => {
 
 export const signOut = async () => {
   const { error } = await supabase.auth.signOut();
-  if (error) console.error('Error logging out:', error);
+  if (error) console.warn('Error logging out:', error);
 };
-
